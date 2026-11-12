@@ -699,16 +699,16 @@ test("the titlebar's free-usage ring counts the current exit and rotates it on t
   const loader = hueco.locator('[data-slot="ring-comet"] animate')
   await expect(ring).toHaveAccessibleName("Free daily usage: 0%")
 
-  // Requests alone fill it: half the cap stays blue, past 60% it turns to the warning colour, and
-  // neither rotates anything.
+  // Requests alone fill it: under half the cap stays blue, past 60% it turns to the warning colour,
+  // and neither rotates anything.
   models = [free(122)]
   await stored(1)
-  await expect(ring).toHaveAccessibleName("Free daily usage: 50%")
+  await expect(ring).toHaveAccessibleName("Free daily usage: 46%")
   await expect(arc).toHaveAttribute("style", /--v2-state-fg-info/)
 
   models = [free(182)]
   await stored(2)
-  await expect(ring).toHaveAccessibleName("Free daily usage: 75%")
+  await expect(ring).toHaveAccessibleName("Free daily usage: 68%")
   await expect(arc).toHaveAttribute("style", /--v2-state-fg-warning/)
   expect(engine.calls).toBe(0)
 
@@ -723,7 +723,7 @@ test("the titlebar's free-usage ring counts the current exit and rotates it on t
   const searchX = (await search.boundingBox())!.x
   await ring.hover()
   await expect(details).toHaveCSS("opacity", "1")
-  await expect(details).toContainText("Free usage · 75%")
+  await expect(details).toContainText("Free usage · 68%")
   await expect(details).toContainText("Resets")
   await expect.poll(async () => (await pill.boundingBox())?.width ?? 0).toBeGreaterThan(slot!.width * 4)
   expect((await details.boundingBox())!.height).toBeLessThanOrEqual(slot!.height)
@@ -760,8 +760,8 @@ test("the titlebar's free-usage ring counts the current exit and rotates it on t
 
   // Past the cap the ring only reads full: nothing rotates without the gateway's own word. The
   // manual landing above anchored the fresh /64 at the day's count then (182), so the day's
-  // count here climbs 250 past it — beyond the 243 cap — and the share caps at the full 100%.
-  models = [free(182 + 250)]
+  // count here climbs 268 past it — exactly the cap — and the share reaches the full 100%.
+  models = [free(182 + 268)]
   await stored(3)
   await expect(ring).toHaveAccessibleName("Free daily usage: 100%")
   await expect(loader).toHaveCount(0)
@@ -850,7 +850,7 @@ test("the titlebar's free-usage ring counts the current exit and rotates it on t
   await expect(arc).toHaveClass(/free-daily-avista/)
   models = [free(123 + 97)]
   await stored(8)
-  await expect(ring).toHaveAccessibleName("Free daily usage: 40%")
+  await expect(ring).toHaveAccessibleName("Free daily usage: 36%")
   expect(engine.calls).toBe(4)
 
   // The rotation program's own fresh exit of a day the ring only just met: the engine read names
@@ -888,7 +888,7 @@ test("the titlebar's free-usage ring counts the current exit and rotates it on t
   // The mount's first read may race its record load; a pushed usage report guarantees at least one refresh.
   await stored(10)
   await handed
-  await expect(ring).toHaveAccessibleName("Free daily usage: 20%")
+  await expect(ring).toHaveAccessibleName("Free daily usage: 18%")
   expect(engine.calls).toBe(4)
 
   // The same exit carried across the free day's renewal: the engine still names the record's
@@ -906,7 +906,7 @@ test("the titlebar's free-usage ring counts the current exit and rotates it on t
   // The mount's first read may race its record load; a pushed usage report guarantees at least one refresh.
   await stored(11)
   await carried
-  await expect(ring).toHaveAccessibleName("Free daily usage: 50%")
+  await expect(ring).toHaveAccessibleName("Free daily usage: 46%")
   await expect(arc).not.toHaveClass(/free-daily-avista/)
   expect(engine.calls).toBe(4)
 
@@ -925,7 +925,7 @@ test("the titlebar's free-usage ring counts the current exit and rotates it on t
   await page.goto("/")
   // The mount's first read may race its record load; a pushed usage report guarantees at least one refresh.
   await stored(12)
-  await expect(ring).toHaveAccessibleName("Free daily usage: 93%")
+  await expect(ring).toHaveAccessibleName("Free daily usage: 84%")
   await expect(loader).toHaveCount(0)
   expect(engine.calls).toBe(4)
 

@@ -985,23 +985,30 @@ function mockHandlers(
         // No scenario signs in to an OpenCode Console workspace, so none has usage limits.
         usageLimits: () => Effect.succeed({ location: location(config), data: null }),
         // The titlebar's free-allowance ring reads today's stats: the scenario's day, or an empty one.
+        // The gateway log mirrors those steps, so the ring counts the same requests through the path
+        // that also sees titles and compactions.
         sessionStats: (ctx) =>
-          Effect.succeed({
-            location: location(config),
-            data: {
-              range: { from: Number(ctx.query.from ?? 0), to: Number(ctx.query.to ?? 0) },
-              sessions: 0,
-              subagents: 0,
-              prompts: 0,
-              steps: 0,
-              tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
-              cost: 0,
-              tools: { mode: "none" },
-              activeDays: 0,
-              streak: 0,
-              activity: [],
-              models: config.dayModels ? resolve(config.dayModels) : [],
-            },
+          Effect.sync(() => {
+            const models = (config.dayModels ? resolve(config.dayModels) : []) as Array<{ steps?: number }>
+
+            return {
+              location: location(config),
+              data: {
+                range: { from: Number(ctx.query.from ?? 0), to: Number(ctx.query.to ?? 0) },
+                sessions: 0,
+                subagents: 0,
+                prompts: 0,
+                steps: 0,
+                gatewayRequests: models.reduce((sum, model) => sum + (model.steps ?? 0), 0),
+                tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+                cost: 0,
+                tools: { mode: "none" },
+                activeDays: 0,
+                streak: 0,
+                activity: [],
+                models,
+              },
+            }
           }),
         // The ring reconciles against the engine's current /64, so a scenario can move it under it.
         ghostStatus: () =>

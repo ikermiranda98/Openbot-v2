@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { SessionStatsModelUsage } from "@opencode/client/promise"
-import { FREE_DAILY_REQUESTS, freeDailyLevel, freeDailyUsage, freeExitUsage, ipv6BucketOf, startOfFreeDay } from "./free-daily"
+import { FREE_DAILY_REQUESTS, freeDailyLevel, freeDailyLimit, freeDailyUsage, freeDailyUsageOf, freeExitUsage, ipv6BucketOf, startOfFreeDay } from "./free-daily"
 
 const usage = (providerID: string, id: string, cost: number, steps: number, tokens: [number, number, number, number, number]): SessionStatsModelUsage => ({
   model: { providerID, id },
@@ -34,6 +34,55 @@ describe("freeDailyUsage", () => {
     expect(requests.percent).toBe(100)
 
     expect(freeDailyUsage({ models: [] }).percent).toBe(0)
+  })
+
+  test("counts the gateway's own log when the server reports it, steps alone when it does not", () => {
+    const models = [
+      usage("opencode", "deepseek-v4.1-flash-free", 0, 30, [100_000, 0, 0, 0, 0]),
+      usage("opencode", "big-pickle", 0, 10, [50_000, 0, 0, 0, 0]),
+    ]
+
+    // Titles, compactions and generate never leave a step, so the log is the count that matters.
+    expect(freeDailyUsage({ models, gatewayRequests: 190 }).requests).toBe(190)
+    // An older server has no log: the free models' steps keep the ring working, one update behind.
+    expect(freeDailyUsage({ models }).requests).toBe(40)
+    // A satisfied log of zero is a count, not a missing field.
+    expect(freeDailyUsage({ models, gatewayRequests: 0 }).requests).toBe(0)
+  })
+})
+
+describe("freeDailyUsageOf", () => {
+  test("sums every visible server's log and falls back to steps only on the server that has none", () => {
+    const logged = {
+      models: [usage("opencode", "deepseek-v4.1-flash-free", 0, 30, [100_000, 0, 0, 0, 0])],
+      gatewayRequests: 190,
+    }
+    const old = {
+      models: [usage("opencode", "big-pickle", 0, 10, [50_000, 0, 0, 0, 0])],
+    }
+
+    // A global fallback would see 40 steps here; the log of the new server stays in the count.
+    expect(freeDailyUsageOf([logged, old]).requests).toBe(200)
+    expect(freeDailyUsageOf([logged, old]).tokens).toBe(150_000)
+    expect(freeDailyUsageOf([old, old]).requests).toBe(20)
+    expect(freeDailyUsageOf([]).requests).toBe(0)
+  })
+})
+
+describe("freeDailyLimit", () => {
+  test("seeds with the measured midpoint until a refusal measures the exit", () => {
+    expect(freeDailyLimit([])).toBe(FREE_DAILY_REQUESTS)
+  })
+
+  test("follows the median of the latest five valid samples", () => {
+    expect(freeDailyLimit([240, 280])).toBe(260)
+    expect(freeDailyLimit([100, 200, 300, 400, 500, 600])).toBe(400)
+    expect(freeDailyLimit([250, 270, 240, 260, 280])).toBe(260)
+  })
+
+  test("drops a dead exit's handful so one spent /64 cannot drag the ring down", () => {
+    expect(freeDailyLimit([5])).toBe(FREE_DAILY_REQUESTS)
+    expect(freeDailyLimit([240, 5, 260])).toBe(250)
   })
 })
 

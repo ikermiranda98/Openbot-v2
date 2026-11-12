@@ -24,7 +24,15 @@ import { Persist, persisted } from "@/runtime/persistence/storage"
 import { useCommand } from "@/shell/commands/command"
 import { useSettings } from "@/settings/model"
 import { ROTATE_COMMAND } from "@/usage/rotation"
-import { freeDailyLevel, freeDailyUsage, freeExitUsage, ipv6BucketOf, startOfFreeDay, type FreeDailyLevel } from "./free-daily"
+import {
+  freeDailyLevel,
+  freeDailyLimit,
+  freeDailyUsageOf,
+  freeExitUsage,
+  ipv6BucketOf,
+  startOfFreeDay,
+  type FreeDailyLevel,
+} from "./free-daily"
 import { agota, aterriza, rechaza, sirvePaso, vigia, type Vigia } from "./free-daily-rotate"
 import { Ring } from "./ring"
 import { bloqueado, rotando, transicion, veredictoDe, type Anillo, type EventoAnillo } from "./free-daily-ring-machine"
@@ -57,6 +65,13 @@ const ExitSchema = Persistence.struct({
   requests: Persistence.optional(Schema.Number),
   bucket: Persistence.optional(Schema.String),
   blind: Persistence.optional(Schema.Boolean),
+})
+
+// What each refusal measured: how many of this desk's requests the gateway accepted on the exit
+// before saying no. They outlive restarts and days — a /64's capacity is the same figure on its
+// next day — and the ring reads the median of the latest ones instead of guessing once.
+const SamplesSchema = Persistence.struct({
+  values: Persistence.array(Schema.Number),
 })
 
 // A rotation's verdict holds the ring's centre this long, hovered or not, before it clears.
@@ -94,10 +109,10 @@ export function FreeDailyUsageRing() {
   const settings = useSettings()
 
   const [store, setStore] = createStore<{
-    usage?: ReturnType<typeof freeDailyUsage>
+    usage?: ReturnType<typeof freeDailyUsageOf>
     // The engine server's own read alone: the /64 the gateway limits is this machine's, so the
     // exit record anchors on this count. A silent motor keeps its last read.
-    usoMotor?: ReturnType<typeof freeDailyUsage>
+    usoMotor?: ReturnType<typeof freeDailyUsageOf>
     // The pill's cycle, as the state machine free-daily-ring-machine.ts holds it.
     anillo: Anillo
     // A failed run's retry wait, the driver's own timer: no auto rotation until it passes.
@@ -124,11 +139,19 @@ export function FreeDailyUsageRing() {
 
   const [exit, setExit, , exitReady] = persisted(Persist.global("usage.free-exit"), ExitSchema, {})
 
+  const [samples, setSamples] = persisted(Persist.global("usage.free-samples"), SamplesSchema, { values: [] })
+
+  // The gateway's limit on the exit serving now: the seed until a refusal measures it, then the
+  // median of the latest refusals. A sample alone does not move the ring — only a 429 rotates.
+  const limite = createMemo(() => freeDailyLimit(samples.values))
+
   // The day's count the current exit anchors to: zero for a day the record does not know yet.
   const ancla = createMemo(() => (exit.day === startOfFreeDay(Date.now()) ? (exit.requests ?? 0) : 0))
 
   // The current /64's share: the day's count less what it stood at when the exit last rotated today.
-  const exitUsage = createMemo(() => (store.usage ? freeExitUsage(store.usage, ancla()) : undefined))
+  const exitUsage = createMemo(() =>
+    store.usage ? freeExitUsage(store.usage, ancla(), limite()) : undefined,
+  )
 
   // Handing the machine's own address back: the free day renewed, or the app came up over an
   // old run's exit, so the hosts pin comes off the hosts and WARP hangs up — and a later
@@ -186,12 +209,12 @@ export function FreeDailyUsageRing() {
 
     if (answered.length === 0) return
 
-    const day = freeDailyUsage({ models: answered.flatMap((item) => item.models) })
+    const day = freeDailyUsageOf(answered, limite())
 
     // The engine server's own read: the /64 the gateway limits is this machine's, and the record
     // anchors on this count. A silent motor leaves no read to anchor on.
     const motorLectura = motorEn >= 0 ? days[motorEn] : undefined
-    const motorUso = motorLectura === undefined ? undefined : freeDailyUsage({ models: motorLectura.models })
+    const motorUso = motorLectura === undefined ? undefined : freeDailyUsageOf([motorLectura], limite())
 
     // A rotation the ring did not ask for (the desktop bat, a script, another window) moves the exit
     // without touching the stored record, so whenever the engine's current /64 disagrees with the
@@ -343,6 +366,14 @@ export function FreeDailyUsageRing() {
               error.retryAfterMs !== undefined)
 
           if (refusal) {
+            // The first refusal of a block measures this exit: every request this desk sent the
+            // gateway accepted before it said no. A refusal that lands on an already-blocked ring
+            // only repeats that count, and a dead exit's handful is filtered by freeDailyLimit.
+            if (bloqueado(store.anillo) === undefined) {
+              const requests = exitUsage()?.requests
+
+              if (requests !== undefined) setSamples("values", (values) => [...values, requests])
+            }
             // The dead-exit watch tallies the refusal before the block claims the ring: a landing
             // no finished response ever used counts once, however many sessions it stopped, and
             // the bound closing announces itself once.
