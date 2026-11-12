@@ -50,12 +50,16 @@ function trimFilter(dir: string, config: Configuration) {
 test.each(channels)("channel identity for $channel", ({ channel, appId, feed }) => {
   const config = load(channel)
   expect(config.appId).toBe(appId)
-  // Every published channel updates from its own feed on the update service.
-  expect(config.publish).toEqual({
-    provider: "generic",
-    url: `https://opencode.ai/update/api/${feed}/desktop/opencode/`,
-    channel: "latest",
-  })
+  // Dev and beta update from the update service; production updates from this fork's releases.
+  expect(config.publish).toEqual(
+    channel === "prod"
+      ? { provider: "github", owner: "ikermiranda98", repo: "Openbot-v2", releaseType: "release" }
+      : {
+          provider: "generic",
+          url: `https://opencode.ai/update/api/${feed}/desktop/opencode/`,
+          channel: "latest",
+        },
+  )
   expect(config.extraMetadata?.desktopName).toBe(`${appId}.desktop`)
   // The executable must never end in `.desktop`: libappimage resolves the
   // AppImage's desktop entry by globbing `*.desktop`, and an ELF matching

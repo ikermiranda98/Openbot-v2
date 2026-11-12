@@ -47,6 +47,10 @@ const APP_IDS = {
   prod: "ai.opencode.desktop",
 } as const
 
+// Production builds update from this fork's releases. OPENBOT_RELEASES_REPO overrides it for
+// another fork or a test feed, and the dev and beta channels keep the upstream feed.
+const FORK_RELEASES_REPO = "ikermiranda98/Openbot-v2"
+
 // libappimage (used by AppImageLauncher) resolves the .desktop entry inside an
 // AppImage by globbing `*.desktop` at the squashfs root. If the main
 // executable itself ends in `.desktop` (prod appId `ai.opencode.desktop`), the
@@ -211,10 +215,12 @@ const getBase = (appId: string): Configuration => {
 
 // A fork that ships its own builds names the GitHub repository its releases live in
 // ("owner/repo"); the app then checks that repository's releases instead of opencode.ai's feed.
+// Production falls back to this fork's repository, so a plain package also updates from Openbot-v2.
 // Its prereleases stay invisible to the app (the updater never allows them) until promoted.
 export function getConfig() {
   const config = channelConfig()
-  const releases = process.env.OPENBOT_RELEASES_REPO?.trim()
+  const releases =
+    process.env.OPENBOT_RELEASES_REPO?.trim() ?? (config.appId === APP_IDS.prod ? FORK_RELEASES_REPO : undefined)
 
   if (!releases) return config
 

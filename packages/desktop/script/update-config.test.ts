@@ -9,11 +9,11 @@ import { writeUpdateConfig } from "./update-config"
 const cases = [
   {
     channel: "dev",
-    releases: "ikermiranda98/openbot",
+    releases: "ikermiranda98/Openbot-v2",
     lines: [
       "provider: github",
       "owner: ikermiranda98",
-      "repo: openbot",
+      "repo: Openbot-v2",
       "updaterCacheDirName: '@opencodedesktop-updater'",
     ],
   },
@@ -41,9 +41,9 @@ const cases = [
     channel: "prod",
     releases: undefined,
     lines: [
-      "provider: generic",
-      "url: https://opencode.ai/update/api/latest/desktop/opencode/",
-      "channel: latest",
+      "provider: github",
+      "owner: ikermiranda98",
+      "repo: Openbot-v2",
       "updaterCacheDirName: '@opencodedesktop-updater'",
     ],
   },

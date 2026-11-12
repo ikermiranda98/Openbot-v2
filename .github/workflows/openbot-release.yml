@@ -43,7 +43,7 @@ env:
   BRANCH: native-trading-bots
   UPSTREAM_URL: https://github.com/anomalyco/opencode
   UPSTREAM_BRANCH: dev
-  RELEASES_REPO: ikermiranda98/openbot
+  RELEASES_REPO: ikermiranda98/Openbot-v2
 
 jobs:
   sync:
