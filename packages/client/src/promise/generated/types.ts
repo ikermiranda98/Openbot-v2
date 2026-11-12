@@ -2462,6 +2462,7 @@ export type SessionStatsInfo = {
   subagents: number
   prompts: number
   steps: number
+  gatewayRequests?: number
   tokens: TokenUsageInfo
   cost: MoneyUSD
   tools: SessionStatsTools

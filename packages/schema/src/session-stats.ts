@@ -57,6 +57,9 @@ export const Info = Schema.Struct({
   subagents: NonNegativeInt,
   prompts: NonNegativeInt,
   steps: NonNegativeInt,
+  // Every finished request this machine sent to the free gateway (steps, titles, compactions
+  // and generate alike), read from the local gateway log. Older servers omit it.
+  gatewayRequests: NonNegativeInt.pipe(optional),
   tokens: TokenUsage.Info,
   cost: Money.USD,
   tools: Tools,

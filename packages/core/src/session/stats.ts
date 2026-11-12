@@ -13,6 +13,7 @@ import { TokenUsage } from "@opencode/schema/token-usage"
 import { Database } from "../database/database.js"
 import { DatabaseBatch } from "../database/batch.js"
 import { EventTable } from "../event/sql.js"
+import { GatewayRequestTable } from "../gateway/sql.js"
 import { SessionMessageTable, SessionPartTable, SessionTable } from "./sql.js"
 
 type Input = {
@@ -351,6 +352,17 @@ export const get = Effect.fn("SessionStats.get")(function* (input: Input = {}) {
     totals.cost += decoded.value.cost
   })
 
+  const gateway = yield* db
+    .get<{ requests: number }>(
+      sql`
+        SELECT count(*) AS requests
+        FROM ${GatewayRequestTable}
+        WHERE created >= ${from} AND created < ${to}
+          ${input.projectID === undefined ? sql`` : sql`AND project_id = ${input.projectID}`}
+      `,
+    )
+    .pipe(Effect.orDie)
+
   const days = [...activity.entries()].sort(([a], [b]) => a.localeCompare(b))
   return {
     range: { from: DateTime.makeUnsafe(from), to: DateTime.makeUnsafe(to) },
@@ -358,6 +370,7 @@ export const get = Effect.fn("SessionStats.get")(function* (input: Input = {}) {
     subagents: subagents.size,
     prompts: totals.prompts,
     steps: totals.steps,
+    gatewayRequests: gateway?.requests ?? 0,
     tokens: totals.tokens,
     cost: Money.USD.make(totals.cost),
     tools:

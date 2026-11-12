@@ -68,6 +68,7 @@ import m65 from "./migration/20261101220206_trading-trade-id.js"
 import m66 from "./migration/20261102053315_trading-close-claims.js"
 import m67 from "./migration/20261105204439_drop-trading-risk.js"
 import m68 from "./migration/20261106035711_session-message-shell-idx.js"
+import m69 from "./migration/20261112213557_gateway-request.js"
 
 export const migrations = [
   m00,
@@ -139,4 +140,5 @@ export const migrations = [
   m66,
   m67,
   m68,
+  m69,
 ] satisfies DatabaseMigration.Migration[]

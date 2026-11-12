@@ -1,8 +1,8 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "c9e81cb8-0325-4363-8a79-ff4726038d40",
-  "prevIds": ["7b770cae-be23-4cbb-891e-661c1765caad"],
+  "id": "cb910cec-c162-417f-aaa9-8050edb5cee8",
+  "prevIds": ["c9e81cb8-0325-4363-8a79-ff4726038d40"],
   "ddl": [
     {
       "name": "account_state",
@@ -26,6 +26,10 @@
     },
     {
       "name": "event",
+      "entityType": "tables"
+    },
+    {
+      "name": "gateway_request",
       "entityType": "tables"
     },
     {
@@ -489,6 +493,36 @@
       "name": "data",
       "entityType": "columns",
       "table": "event"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "gateway_request"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created",
+      "entityType": "columns",
+      "table": "gateway_request"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "table": "gateway_request"
     },
     {
       "type": "text",
@@ -2673,6 +2707,13 @@
       "entityType": "pks"
     },
     {
+      "columns": ["id"],
+      "nameExplicit": false,
+      "name": "gateway_request_pk",
+      "table": "gateway_request",
+      "entityType": "pks"
+    },
+    {
       "columns": ["notification_id"],
       "nameExplicit": false,
       "name": "job_pk",
@@ -2837,6 +2878,20 @@
       "name": "event_aggregate_type_seq_idx",
       "entityType": "indexes",
       "table": "event"
+    },
+    {
+      "columns": [
+        {
+          "value": "created",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "gateway_request_created_idx",
+      "entityType": "indexes",
+      "table": "gateway_request"
     },
     {
       "columns": [

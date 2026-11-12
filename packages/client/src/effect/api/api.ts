@@ -502,6 +502,7 @@ export type ExperimentalSessionStatsOutput = {
   readonly subagents: number
   readonly prompts: number
   readonly steps: number
+  readonly gatewayRequests?: number | undefined
   readonly tokens: {
     readonly input: number
     readonly output: number

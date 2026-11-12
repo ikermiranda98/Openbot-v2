@@ -69,6 +69,13 @@ const schema: Omit<DatabaseMigration.Migration, "id"> = {
         );
       `)
       yield* tx.run(`
+        CREATE TABLE \`gateway_request\` (
+          \`id\` integer PRIMARY KEY,
+          \`created\` integer NOT NULL,
+          \`project_id\` text
+        );
+      `)
+      yield* tx.run(`
         CREATE TABLE \`job\` (
           \`notification_id\` text PRIMARY KEY,
           \`id\` text NOT NULL,
@@ -374,6 +381,7 @@ const schema: Omit<DatabaseMigration.Migration, "id"> = {
       `)
       yield* tx.run(`CREATE UNIQUE INDEX \`event_aggregate_seq_idx\` ON \`event\` (\`aggregate_id\`,\`seq\`);`)
       yield* tx.run(`CREATE INDEX \`event_aggregate_type_seq_idx\` ON \`event\` (\`aggregate_id\`,\`type\`,\`seq\`);`)
+      yield* tx.run(`CREATE INDEX \`gateway_request_created_idx\` ON \`gateway_request\` (\`created\`);`)
       yield* tx.run(`CREATE INDEX \`job_session_idx\` ON \`job\` (\`session_id\`);`)
       yield* tx.run(`CREATE INDEX \`job_child_session_idx\` ON \`job\` (\`child_session_id\`);`)
       yield* tx.run(`CREATE INDEX \`job_id_idx\` ON \`job\` (\`id\`);`)
