@@ -1,0 +1,22 @@
+diff --git a/dist/api-next/api-next.js b/dist/api-next/api-next.js
+index 021f02c2afff75a4cbd77e2cc1b506c41605fc90..e040d4dfee45f3df5dcb822297d65f55159acdd5 100644
+--- a/dist/api-next/api-next.js
++++ b/dist/api-next/api-next.js
+@@ -263,7 +263,7 @@ class IBApiNext {
+                 else {
+                     if (!pos) {
+                         // zero size - remove it
+-                        accountPositions.splice(changePositionIndex);
++                        accountPositions.splice(changePositionIndex, 1);
+                         hasRemoved = true;
+                     }
+                     else {
+@@ -361,7 +361,7 @@ class IBApiNext {
+                 else {
+                     if (!pos) {
+                         // zero size - remove it
+-                        accountPositions.splice(changePositionIndex);
++                        accountPositions.splice(changePositionIndex, 1);
+                         hasRemoved = true;
+                     }
+                     else {

@@ -1,0 +1,84 @@
+/* The free daily ring's motion, kept beside the component (dialog.css's precedent). The ring's
+   shared geometry, dash ease and comet live on the Ring (@/usage/ring, with ring.css); these
+   rules target its slots through the ring's own data-component and win on specificity, and
+   every rule has a reduced-motion exit where strokes, scales and pulses simply take their rest
+   state: the app resolves the system preference into :root's own data-motion attribute
+   (@opencode/ui/motion). */
+
+/* The gateway's refusal marks the already-full arc with one swelling beat: the band thickens to
+   announce the block and settles back to the stroke width its attribute holds. */
+@keyframes free-daily-blocked-swell {
+  0% {
+    stroke-width: 1.75;
+  }
+  35% {
+    stroke-width: 2.9;
+  }
+  100% {
+    stroke-width: 1.75;
+  }
+}
+
+.free-daily-blocked [data-slot="progress-circle-progress"] {
+  animation: free-daily-blocked-swell 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* A rotation the ring did not ask for (the bat, a script, another window) reconciles quietly at the
+   next read; the comet rides one lap as the move's witness, then the class clears. The wake's own
+   run, at the arc's own state colour — under reduced motion the Ring's reduce switches keep the
+   comet still, so nothing of the lap shows. */
+.free-daily-avista [data-slot="ring-comet"] {
+  animation: ring-comet-run 430ms linear both;
+}
+
+/* The verdict lands as an impact instead of a study: the glyph falls in from above with a
+   bounce and the pill dips a touch under it, the whole row feeling the mark arrive. The drop
+   rides the svg's own box through `translate` and `scale` (Tailwind's own properties, not a
+   `transform`), so the path's centring transform — the glyph artwork is drawn around (8, 8) —
+   stays put underneath. `backwards` rests the pill at its seat through the dip's delay. */
+@keyframes free-daily-verdict-drop {
+  0% {
+    opacity: 0;
+    translate: 0 -6px;
+    scale: 1.4;
+  }
+  55% {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+  }
+  75% {
+    translate: 0 0.3px;
+    scale: 1.06;
+  }
+  100% {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+  }
+}
+
+@keyframes free-daily-verdict-land {
+  0% {
+    translate: 0 0;
+  }
+  45% {
+    translate: 0 1.5px;
+  }
+  100% {
+    translate: 0 0;
+  }
+}
+
+[data-component="free-daily-ring"] [data-slot="ring-verdict"] {
+  animation: free-daily-verdict-drop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+[data-component="free-daily-ring"] [data-verdict] {
+  animation: free-daily-verdict-land 220ms ease-out 100ms backwards;
+}
+
+:root[data-motion="reduce"] [data-component="free-daily-ring"] [data-slot="ring-verdict"],
+:root[data-motion="reduce"] [data-component="free-daily-ring"] [data-verdict] {
+  animation: none;
+}

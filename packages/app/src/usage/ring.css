@@ -1,0 +1,50 @@
+/* The house ring's own motion, kept beside the component (free-daily-ring.css's precedent). The
+   shared progress-circle stylesheet still owns the arc's stroke colours; these rules add the
+   dash's own ease, the comet's stain and its looping lap, and take all of it back under reduced
+   motion. Every rule keys on the svg's own data-ring, so no other ProgressCircle picks them up,
+   and every one has a reduced-motion exit where strokes and laps take their rest state: the app
+   resolves the system preference into :root's own data-motion attribute (@opencode/ui/motion). */
+[data-component="progress-circle"][data-ring] [data-slot="progress-circle-progress"] {
+  transition:
+    stroke-dashoffset 600ms cubic-bezier(0.22, 1, 0.36, 1),
+    stroke 350ms ease-out,
+    opacity 150ms ease-out;
+}
+
+/* While the comet is the loading indicator, the band steps back: dimmed on its own ease so the
+   lap reads against a quieter arc. (Reduced motion never receives the marker — there the comet
+   holds still, one dash at its rest, over the full arc.) */
+[data-component="progress-circle"][data-ring][data-ring-comet] [data-slot="progress-circle-progress"] {
+  opacity: 0.4;
+}
+
+/* The comet, stained with the arc's own state colour: the same custom property the shared
+   stylesheet paints the band with, defined on the ring's svg itself. */
+[data-component="progress-circle"][data-ring] [data-slot="ring-comet"] {
+  stroke: var(--progress-circle-progress);
+}
+
+/* One lap around the ring, holding its colour until the last of the run and burning out as it
+   lands — the wake's lead lap, and the loading lap when the marker loops it without end. */
+@keyframes ring-comet-run {
+  0% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: -100;
+    opacity: 0;
+  }
+}
+
+:root[data-motion="reduce"] [data-component="progress-circle"][data-ring] [data-slot="progress-circle-progress"],
+:root[data-motion="reduce"] [data-component="progress-circle"][data-ring] [data-slot="ring-comet"] {
+  animation: none;
+}
+
+:root[data-motion="reduce"] [data-component="progress-circle"][data-ring] [data-slot="progress-circle-progress"] {
+  transition: none;
+}

@@ -1,0 +1,10 @@
+# One-shot: the first Actions run on a brand-new repository completes the workflow index
+# registration. Once it has landed, openbot-release.yml can be dispatched and this file goes.
+name: Warm Actions
+on: push
+permissions: {}
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo warm
