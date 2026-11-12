@@ -701,12 +701,12 @@ test("the titlebar's free-usage ring counts the current exit and rotates it on t
 
   // Requests alone fill it: half the cap stays blue, past 60% it turns to the warning colour, and
   // neither rotates anything.
-  models = [free(103)]
+  models = [free(122)]
   await stored(1)
   await expect(ring).toHaveAccessibleName("Free daily usage: 50%")
   await expect(arc).toHaveAttribute("style", /--v2-state-fg-info/)
 
-  models = [free(154)]
+  models = [free(182)]
   await stored(2)
   await expect(ring).toHaveAccessibleName("Free daily usage: 75%")
   await expect(arc).toHaveAttribute("style", /--v2-state-fg-warning/)
@@ -759,9 +759,9 @@ test("the titlebar's free-usage ring counts the current exit and rotates it on t
   await expect(ring).toHaveAccessibleName("Free daily usage: 0%")
 
   // Past the cap the ring only reads full: nothing rotates without the gateway's own word. The
-  // manual landing above anchored the fresh /64 at the day's count then (154), so the day's
-  // count here climbs 215 past it — beyond the 205 cap — and the share caps at the full 100%.
-  models = [free(154 + 215)]
+  // manual landing above anchored the fresh /64 at the day's count then (182), so the day's
+  // count here climbs 250 past it — beyond the 243 cap — and the share caps at the full 100%.
+  models = [free(182 + 250)]
   await stored(3)
   await expect(ring).toHaveAccessibleName("Free daily usage: 100%")
   await expect(loader).toHaveCount(0)
@@ -848,7 +848,7 @@ test("the titlebar's free-usage ring counts the current exit and rotates it on t
   await expect(ring).toHaveAccessibleName("Free daily usage: 0%")
   // The move down the ring the ring didn't ask for rides one comet lap as its witness.
   await expect(arc).toHaveClass(/free-daily-avista/)
-  models = [free(123 + 82)]
+  models = [free(123 + 97)]
   await stored(8)
   await expect(ring).toHaveAccessibleName("Free daily usage: 40%")
   expect(engine.calls).toBe(4)
@@ -877,7 +877,7 @@ test("the titlebar's free-usage ring counts the current exit and rotates it on t
   // engine read: one release through the engine, never the rotate ladder, and the day's count
   // reads whole again.
   bucket = undefined
-  models = [free(41)]
+  models = [free(49)]
   await seed(page, {
     storage: {
       "opencode.global.dat:usage.free-exit": { day: T0, requests: 123, bucket: "2001:db8:0:2" },
@@ -896,7 +896,7 @@ test("the titlebar's free-usage ring counts the current exit and rotates it on t
   // whole, and no lap or rotation marks a move that never happened.
   const carried = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/experimental/ghost/status")
   bucket = "2001:db8:0:6"
-  models = [free(103)]
+  models = [free(122)]
   await seed(page, {
     storage: {
       "opencode.global.dat:usage.free-exit": { day: T0 - 86_400_000, requests: 50, bucket: "2001:db8:0:6" },
@@ -916,7 +916,7 @@ test("the titlebar's free-usage ring counts the current exit and rotates it on t
   // zero, and no rotation happens without the gateway's own refusal.
   pin = false
   bucket = undefined
-  models = [free(190)]
+  models = [free(226)]
   await seed(page, {
     storage: {
       "opencode.global.dat:usage.free-exit": { day: T0 - 86_400_000, requests: 50, bucket: "2001:db8:0:5" },

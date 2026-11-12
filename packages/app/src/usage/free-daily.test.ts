@@ -23,12 +23,12 @@ describe("freeDailyUsage", () => {
 
     expect(result.tokens).toBe(500_000)
     expect(result.requests).toBe(41)
-    expect(result.percent).toBe(20)
+    expect(result.percent).toBeCloseTo((41 / FREE_DAILY_REQUESTS) * 100, 10)
   })
 
   test("only requests fill the ring, which stops at 100%", () => {
     const tokens = freeDailyUsage({ models: [usage("opencode", "big-pickle", 0, 10, [9_000_000, 0, 0, 0, 0])] })
-    expect(tokens.percent).toBeCloseTo(4.88, 2)
+    expect(tokens.percent).toBeCloseTo((10 / FREE_DAILY_REQUESTS) * 100, 2)
 
     const requests = freeDailyUsage({ models: [usage("opencode", "big-pickle", 0, FREE_DAILY_REQUESTS * 2, [1_000, 0, 0, 0, 0])] })
     expect(requests.percent).toBe(100)

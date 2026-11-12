@@ -3,11 +3,12 @@ import type { SessionStatsInfo, SessionStatsModelUsage } from "@opencode/client/
 // OpenCode's free tier, per the gateway's last public limiter (zen/util/ipRateLimiter.ts): one
 // counter of model requests per client IP (an IPv6 address cut to its /64) and UTC day, raised
 // once per finished response; there is no token cap. The limit itself lives in private config:
-// 205 is the figure measured on 2 Nov 2026 from an address only this desk used. Behind a shared
-// exit such as Cloudflare WARP the counter also holds other people's requests and moves with the
-// exit address, so this desk's own count is an estimate; the ring states the gateway's own
-// block (FreeUsageLimitError) the moment one arrives.
-export const FREE_DAILY_REQUESTS = 205
+// 243 is the figure measured on 12 Nov 2026 from the gateway's own automatic refusal on a fresh
+// WARP /64 (243 finished requests). Behind a shared exit such as Cloudflare WARP the counter also
+// holds other people's requests and moves with the exit address, so this desk's own count is an
+// estimate; the ring states the gateway's own block (FreeUsageLimitError) the moment one arrives.
+// Re-measure on a dedicated exit before trusting a new value.
+export const FREE_DAILY_REQUESTS = 243
 
 /** Midnight UTC of the day `now` falls in, as epoch ms: the start of today's allowance. */
 export function startOfFreeDay(now: number) {
