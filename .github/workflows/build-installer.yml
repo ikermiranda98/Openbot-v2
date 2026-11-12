@@ -1,0 +1,101 @@
+name: build-installer
+
+# Compila el CLI y la app de escritorio en Windows y publica el instalador NSIS
+# como release de este repositorio. Solo se lanza a mano.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version del instalador y del release (semver)"
+        required: true
+        default: "2.2.9"
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-installer
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Compilar instalador Windows
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Version
+        id: version
+        shell: bash
+        run: echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build the CLI (Windows x64 baseline)
+        working-directory: packages/cli
+        shell: bash
+        env:
+          OPENCODE_CHANNEL: latest
+          OPENCODE_VERSION: ${{ steps.version.outputs.version }}
+        run: bun run build --single --baseline
+
+      - name: Build the desktop app
+        working-directory: packages/desktop
+        shell: bash
+        env:
+          OPENCODE_CHANNEL: prod
+          OPENCODE_VERSION: ${{ steps.version.outputs.version }}
+          OPENBOT_RELEASES_REPO: ${{ github.repository }}
+        run: bun run build
+
+      - name: Verify the bundled CLI
+        working-directory: packages/desktop
+        shell: bash
+        env:
+          OPENCODE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          bundled=$(./resources/opencode-cli.exe --version)
+          echo "Bundled CLI: $bundled"
+          [ "$bundled" = "opencode v${OPENCODE_VERSION}" ] || { echo "::error::El CLI empaquetado no es el del fork ($bundled)"; exit 1; }
+
+      - name: Package the installer
+        working-directory: packages/desktop
+        shell: bash
+        env:
+          OPENCODE_CHANNEL: prod
+          OPENCODE_VERSION: ${{ steps.version.outputs.version }}
+          OPENBOT_RELEASES_REPO: ${{ github.repository }}
+        run: |
+          bun run pack
+          cp -r ../../dist/desktop/app "$RUNNER_TEMP/app"
+          OPENCODE_DESKTOP_APP="$(cygpath -w "$RUNNER_TEMP/app")" bun run pack
+          sha256sum dist/openbot-win-x64.exe > dist/SHA256SUMS.txt
+          ls -la dist/openbot-win-x64.exe dist/openbot-win-x64.exe.blockmap dist/latest.yml dist/SHA256SUMS.txt
+
+      - name: Publish the release
+        working-directory: packages/desktop
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          {
+            echo "Instalador Windows x64 de Openbot, compilado en GitHub Actions."
+            echo
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo
+            echo "SHA-256 en \`SHA256SUMS.txt\`."
+          } > "$RUNNER_TEMP/notes.md"
+          gh release create "v$VERSION" \
+            dist/openbot-win-x64.exe \
+            dist/openbot-win-x64.exe.blockmap \
+            dist/latest.yml \
+            dist/SHA256SUMS.txt \
+            --repo "${{ github.repository }}" \
+            --title "Openbot $VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md"
