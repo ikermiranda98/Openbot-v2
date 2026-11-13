@@ -94,6 +94,8 @@ import { SubagentTool } from "../tool/plugin/subagent.js"
 import { TodoTool } from "../tool/plugin/todo.js"
 import { Tool } from "../tool.js"
 import { ToolOutput } from "../tool-output.js"
+import { TradingEngine } from "../trading.js"
+import { TradingTools } from "../tool/plugin/trading.js"
 import { WebFetchTool } from "../tool/plugin/webfetch.js"
 import { WebSearchTool } from "../tool/plugin/websearch.js"
 import { WellKnown } from "../wellknown.js"
@@ -174,6 +176,7 @@ const services = [
   SkillDiscovery.Service,
   Tool.Service,
   ToolOutput.Service,
+  TradingEngine.Service,
   Watcher.Service,
   WellKnown.Service,
   Worktree.Service,
@@ -236,6 +239,7 @@ export const requirements = LayerNode.group([
   SkillDiscovery.node,
   Tool.node,
   ToolOutput.node,
+  TradingEngine.node,
   Watcher.node,
   WellKnown.node,
   Worktree.node,
@@ -281,6 +285,7 @@ const pre = [
   SkillTool.Plugin,
   SubagentTool.Plugin,
   TodoTool.Plugin,
+  TradingTools.Plugin,
   WebFetchTool.Plugin,
   WebSearchTool.Plugin,
   WriteTool.Plugin,
