@@ -30,7 +30,7 @@
     },
     "packages/ai": {
       "name": "@opencode/ai",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@aws-sdk/credential-providers": "3.1057.0",
         "@opencode/schema": "workspace:*",
@@ -52,7 +52,7 @@
     },
     "packages/app": {
       "name": "@opencode/app",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@corvu/drawer": "catalog:",
         "@dnd-kit/abstract": "0.5.0",
@@ -107,7 +107,7 @@
     },
     "packages/cli": {
       "name": "@opencode/cli",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "bin": {
         "opencode": "./bin/opencode.cjs",
         "opencode2": "./bin/opencode2.cjs",
@@ -172,7 +172,7 @@
     },
     "packages/client": {
       "name": "@opencode/client",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@opencode/protocol": "workspace:*",
         "@opencode/schema": "workspace:*",
@@ -198,7 +198,7 @@
     },
     "packages/codemode": {
       "name": "@opencode/codemode",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "acorn": "8.15.0",
         "effect": "catalog:",
@@ -211,7 +211,7 @@
     },
     "packages/core": {
       "name": "@opencode/core",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@ai-sdk/provider": "3.0.19",
         "@effect/platform-node": "catalog:",
@@ -249,6 +249,7 @@
         "jose": "6.0.11",
         "jsonc-parser": "3.3.1",
         "mime-types": "3.0.2",
+        "undici": "8.12.3",
         "which": "6.0.1",
         "zod": "catalog:",
       },
@@ -281,7 +282,7 @@
     },
     "packages/desktop": {
       "name": "@opencode/desktop",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@zip.js/zip.js": "2.7.62",
         "electron-context-menu": "5.0.0",
@@ -330,7 +331,7 @@
     },
     "packages/gui-plugins": {
       "name": "@opencode/gui-plugins",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@betteroffice/docx": "0.4.3",
         "@betteroffice/fonts": "0.4.0",
@@ -375,7 +376,7 @@
     },
     "packages/http-recorder": {
       "name": "@opencode/http-recorder",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@effect/platform-node-shared": "catalog:",
       },
@@ -394,7 +395,7 @@
     },
     "packages/httpapi-codegen": {
       "name": "@opencode/httpapi-codegen",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "effect": "catalog:",
         "prettier": "3.6.2",
@@ -407,7 +408,7 @@
     },
     "packages/latex": {
       "name": "@opencode/latex",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@opencode/plugin": "workspace:*",
         "@opentui/core": "catalog:",
@@ -421,7 +422,7 @@
     },
     "packages/merman": {
       "name": "@opencode/merman",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@opencode/plugin": "workspace:*",
         "@opentui/core": "catalog:",
@@ -434,20 +435,9 @@
         "@typescript/native": "catalog:",
       },
     },
-    "packages/nav-menus": {
-      "name": "@opencode/nav-menus",
-      "version": "2.2.7",
-      "devDependencies": {
-        "@happy-dom/global-registrator": "20.0.11",
-        "@types/bun": "catalog:",
-        "@typescript/native": "catalog:",
-        "happy-dom": "20.11.1",
-        "typescript": "catalog:",
-      },
-    },
     "packages/patchmark": {
       "name": "@opencode/patchmark",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "devDependencies": {
         "@tsconfig/bun": "catalog:",
         "@types/bun": "catalog:",
@@ -460,7 +450,7 @@
     },
     "packages/plugin": {
       "name": "@opencode/plugin",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@ai-sdk/provider": "3.0.8",
         "@opencode/ai": "workspace:*",
@@ -505,7 +495,7 @@
     },
     "packages/plugin-browser": {
       "name": "@opencode/plugin-browser",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@opencode/plugin": "workspace:*",
         "@opencode/schema": "workspace:*",
@@ -518,24 +508,9 @@
         "typescript": "catalog:",
       },
     },
-    "packages/plugins/figma": {
-      "name": "@opencode/plugin-figma",
-      "version": "2.2.7",
-      "dependencies": {
-        "gray-matter": "4.0.3",
-      },
-      "devDependencies": {
-        "@tsconfig/bun": "1.0.9",
-        "@types/bun": "1.4.3",
-        "@typescript/native": "npm:typescript@7.1.0-beta",
-      },
-      "peerDependencies": {
-        "@opencode/plugin": "^2.0.27 || ^0.0.0-dev",
-      },
-    },
     "packages/protocol": {
       "name": "@opencode/protocol",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@opencode/schema": "workspace:*",
         "effect": "catalog:",
@@ -550,7 +525,7 @@
     },
     "packages/schema": {
       "name": "@opencode/schema",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@standard-schema/spec": "catalog:",
         "effect": "catalog:",
@@ -572,30 +547,9 @@
         "@types/semver": "^7.5.8",
       },
     },
-    "packages/sdk": {
-      "name": "@opencode/sdk",
-      "version": "2.2.7",
-      "dependencies": {
-        "@opencode/client": "workspace:*",
-        "@opencode/core": "workspace:*",
-        "@opencode/plugin": "workspace:*",
-        "@opencode/schema": "workspace:*",
-        "@opencode/server": "workspace:*",
-        "@opencode/util": "workspace:*",
-        "effect": "catalog:",
-      },
-      "devDependencies": {
-        "@opencode/ai": "workspace:*",
-        "@opencode/httpapi-codegen": "workspace:*",
-        "@opencode/protocol": "workspace:*",
-        "@tsconfig/bun": "catalog:",
-        "@types/bun": "catalog:",
-        "@typescript/native": "catalog:",
-      },
-    },
     "packages/server": {
       "name": "@opencode/server",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@effect/platform-node": "catalog:",
         "@effect/platform-node-shared": "catalog:",
@@ -618,7 +572,7 @@
     },
     "packages/session-ui": {
       "name": "@opencode/session-ui",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@kitlangton/solid-motion": "0.2.2",
         "@kobalte/core": "catalog:",
@@ -650,7 +604,7 @@
     },
     "packages/simulation": {
       "name": "@opencode/simulation",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@opencode/ai": "workspace:*",
         "@opencode/core": "workspace:*",
@@ -670,7 +624,7 @@
     },
     "packages/theme": {
       "name": "@opencode/theme",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@opentui/core": "catalog:",
         "effect": "catalog:",
@@ -684,7 +638,7 @@
     },
     "packages/tui": {
       "name": "@opencode/tui",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@opencode/client": "workspace:*",
         "@opencode/core": "workspace:*",
@@ -716,7 +670,7 @@
     },
     "packages/ui": {
       "name": "@opencode/ui",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@kitlangton/solid-motion": "0.2.2",
         "@kobalte/core": "catalog:",
@@ -752,7 +706,7 @@
     },
     "packages/util": {
       "name": "@opencode/util",
-      "version": "2.2.7",
+      "version": "2.3.0",
       "dependencies": {
         "@effect/opentelemetry": "catalog:",
         "@effect/platform-node": "catalog:",
@@ -800,6 +754,7 @@
     "@tanstack/virtual-core@3.17.8": "patches/@tanstack%2Fvirtual-core@3.17.8.patch",
     "@brendonovich/vite-plugin-opencode@0.1.3": "patches/@brendonovich%2Fvite-plugin-opencode@0.1.3.patch",
     "electron-updater@6.8.9": "patches/electron-updater@6.8.9.patch",
+    "@kobalte/core@0.13.13": "patches/@kobalte%2Fcore@0.13.13.patch",
     "pacote@21.5.1": "patches/pacote@21.5.1.patch",
     "@npmcli/agent@4.0.2": "patches/@npmcli%2Fagent@4.0.2.patch",
     "@silvia-odwyer/photon-node@0.3.4": "patches/@silvia-odwyer%2Fphoton-node@0.3.4.patch",
@@ -834,7 +789,7 @@
     "@effect/platform-node-shared": "4.1.0",
     "@effect/sql-sqlite-bun": "4.1.0",
     "@effect/sql-sqlite-node": "4.1.0",
-    "@hona/strobe": "0.28.0",
+    "@hona/strobe": "0.39.0",
     "@kobalte/core": "0.13.13",
     "@lydell/node-pty": "1.2.0-beta.12",
     "@npmcli/arborist": "9.4.0",
@@ -1341,19 +1296,19 @@
 
     "@happy-dom/global-registrator": ["@happy-dom/global-registrator@20.0.11", "", { "dependencies": { "@types/node": "^20.0.0", "happy-dom": "^20.0.11" } }, "sha512-GqNqiShBT/lzkHTMC/slKBrvN0DsD4Di8ssBk4aDaVgEn+2WMzE6DXxq701ndSXj7/0cJ8mNT71pM7Bnrr6JRw=="],
 
-    "@hona/strobe": ["@hona/strobe@0.28.0", "", { "optionalDependencies": { "@hona/strobe-darwin-arm64": "0.28.0", "@hona/strobe-darwin-x64": "0.28.0", "@hona/strobe-linux-arm64": "0.28.0", "@hona/strobe-linux-x64": "0.28.0", "@hona/strobe-win32-arm64": "0.28.0", "@hona/strobe-win32-x64": "0.28.0" }, "bin": { "strobe": "bin/strobe.js" } }, "sha512-5JzZqIMxeiLR5encQ1e+tCZl8zlkN+QGHAga/e+WOm2rk9m1Ep4bDy0oWUiPynhha45X9luOlJxoxs+8T5bJXg=="],
+    "@hona/strobe": ["@hona/strobe@0.39.0", "", { "optionalDependencies": { "@hona/strobe-darwin-arm64": "0.39.0", "@hona/strobe-darwin-x64": "0.39.0", "@hona/strobe-linux-arm64": "0.39.0", "@hona/strobe-linux-x64": "0.39.0", "@hona/strobe-win32-arm64": "0.39.0", "@hona/strobe-win32-x64": "0.39.0" }, "bin": { "strobe": "bin/strobe.js" } }, "sha512-s2mHqIkmPJlXQMzG3WIy67rjiXR8vQ0IEvGdC5hq6MvXSkuhpnBcTS/OmcwMB7mcKiK/pXF1o1v3Hh2RjVpEmQ=="],
 
-    "@hona/strobe-darwin-arm64": ["@hona/strobe-darwin-arm64@0.28.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-zv10Kv1eYtJC8aVxcqOFdwxkBNQ4JWbo95+7dHxboFhf+zR6h4foV2VEmaSpHb59vSPFn29/OTTpkQD8UVg9pA=="],
+    "@hona/strobe-darwin-arm64": ["@hona/strobe-darwin-arm64@0.39.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-+7ZxFUoaBGGlLmEYfU0cGwCxX9ipHB9Zg5NfaV8ZWPbUnqB5BdhgeAVpFbWI/2kJWvqx/HAv/uvCm3jhGfw0VA=="],
 
-    "@hona/strobe-darwin-x64": ["@hona/strobe-darwin-x64@0.28.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-8EsxZu6i/HfwUhfGqPdbyvPuK4PMHV23R6fVk0s60CB72VSsstl92PMY5REtEOE6nDysF1azsPs/myUVFzDlKw=="],
+    "@hona/strobe-darwin-x64": ["@hona/strobe-darwin-x64@0.39.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-zAiKXHeF8jPI67o+tEcHYaPdX/myroa0OhUrnMlLiR90dwLTqcNz1BooPhFz9w4e5/gxMLmcGdsJRooAVgymTg=="],
 
-    "@hona/strobe-linux-arm64": ["@hona/strobe-linux-arm64@0.28.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-n/C0mRzvNcVUntBmCUes7j21N0Y25sGCgy/r53D/WZStysn/QVfOzCWtkkPjZ09TJ8MDY4bIOk7WPdV5s/fMgA=="],
+    "@hona/strobe-linux-arm64": ["@hona/strobe-linux-arm64@0.39.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-jtibTr5ExvxMK38A5kKflBI4zbm4yAxUK8oy1Bk5Esr+a1myZMzM5uRIyS/InGR50c8ZCJg6NzFIXsRJIKJEQw=="],
 
-    "@hona/strobe-linux-x64": ["@hona/strobe-linux-x64@0.28.0", "", { "os": "linux", "cpu": "x64" }, "sha512-G+z9vgn0OwF/K3tKx3QGpAI+GML1O2XJUGjorIYLQ0wmgi6G6FnKCb8Zk/hcKTdUxp5VNsElibPsd7JEGfrQvA=="],
+    "@hona/strobe-linux-x64": ["@hona/strobe-linux-x64@0.39.0", "", { "os": "linux", "cpu": "x64" }, "sha512-t0plZMADXWOrWmvbBtiinExpm1fcqTdyto9zphkjE1j0U1Yg+jd7rXtrlTbO53KY+PTBBtuasr5/unWTpFocmg=="],
 
-    "@hona/strobe-win32-arm64": ["@hona/strobe-win32-arm64@0.28.0", "", { "os": "win32", "cpu": "arm64" }, "sha512-rHPNY0+XO+3dTaZO9r0gKWoWPr4aHNhZC6KNX5kIvJbJ2/QuEUyEJmzFkvSlx68ixl5rbg3lBGB2tO7YNOvotg=="],
+    "@hona/strobe-win32-arm64": ["@hona/strobe-win32-arm64@0.39.0", "", { "os": "win32", "cpu": "arm64" }, "sha512-z9HZAOgl7Gkq/bFlPDKrIQ6LdT4jIpdvR53gid4CeTsOZkc3AwGvSzvnnVwk4KBjS1JFZe0rtB8lvSjj2gfxsw=="],
 
-    "@hona/strobe-win32-x64": ["@hona/strobe-win32-x64@0.28.0", "", { "os": "win32", "cpu": "x64" }, "sha512-kZJ9l/lZ7zneU2NVj7p1WmSifVrWwRQFzIOw3MfEjaC1TqGD2+w0JFCNuzYCp7j8irtRC/OM7W5/9fLjGy/kxQ=="],
+    "@hona/strobe-win32-x64": ["@hona/strobe-win32-x64@0.39.0", "", { "os": "win32", "cpu": "x64" }, "sha512-eii01I8fg0G+5G5cSfSMqmdX/PzrB09FfPOpj1zuPTSMZcch+UptK3Sr8v99Kczl7jVGx5TdGKkCMWUoOwiEWA=="],
 
     "@hono/node-server": ["@hono/node-server@2.1.5", "", { "peerDependencies": { "hono": "^4 || ^5.0.0-0" } }, "sha512-MgP/I06GdvsilDspMk/qmRzpk8LOUStP6jFAbSRi40W09DhoyUn+Mj7eyKICPqeYKybOjVFLVIAQzvu1bfIa7Q=="],
 
@@ -1483,15 +1438,11 @@
 
     "@opencode/merman": ["@opencode/merman@workspace:packages/merman"],
 
-    "@opencode/nav-menus": ["@opencode/nav-menus@workspace:packages/nav-menus"],
-
     "@opencode/patchmark": ["@opencode/patchmark@workspace:packages/patchmark"],
 
     "@opencode/plugin": ["@opencode/plugin@workspace:packages/plugin"],
 
     "@opencode/plugin-browser": ["@opencode/plugin-browser@workspace:packages/plugin-browser"],
-
-    "@opencode/plugin-figma": ["@opencode/plugin-figma@workspace:packages/plugins/figma"],
 
     "@opencode/protocol": ["@opencode/protocol@workspace:packages/protocol"],
 
@@ -1516,8 +1467,6 @@
     "@opencode/schema": ["@opencode/schema@workspace:packages/schema"],
 
     "@opencode/script": ["@opencode/script@workspace:packages/script"],
-
-    "@opencode/sdk": ["@opencode/sdk@workspace:packages/sdk"],
 
     "@opencode/server": ["@opencode/server@workspace:packages/server"],
 
