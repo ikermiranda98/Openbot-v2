@@ -92,6 +92,8 @@ import { ShellTool } from "../tool/plugin/shell.js"
 import { SkillTool } from "../tool/plugin/skill.js"
 import { SubagentTool } from "../tool/plugin/subagent.js"
 import { TodoTool } from "../tool/plugin/todo.js"
+import { TradingTools } from "../tool/plugin/trading.js"
+import { TradingEngine } from "../trading.js"
 import { Tool } from "../tool.js"
 import { ToolOutput } from "../tool-output.js"
 import { WebFetchTool } from "../tool/plugin/webfetch.js"
@@ -122,6 +124,7 @@ import { WellKnownPlugin } from "../wellknown/plugin.js"
 
 const services = [
   Agent.Service,
+  TradingEngine.Service,
   // Activation clears the ambient context, so built-ins see the configured build channel only through this.
   App.Service,
   FetchHttpClient.Fetch,
@@ -184,6 +187,7 @@ export type Requirements = Context.Service.Identifier<(typeof services)[number]>
 
 export const requirements = LayerNode.group([
   Agent.node,
+  TradingEngine.node,
   App.node,
   Artifact.node,
   AppProcess.node,
@@ -281,6 +285,7 @@ const pre = [
   SkillTool.Plugin,
   SubagentTool.Plugin,
   TodoTool.Plugin,
+  TradingTools.Plugin,
   WebFetchTool.Plugin,
   WebSearchTool.Plugin,
   WriteTool.Plugin,

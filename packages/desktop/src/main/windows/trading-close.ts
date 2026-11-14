@@ -122,5 +122,44 @@ export const confirmTradingClose = (win: BrowserWindow) =>
     return permitido
   })
 
+/** The trading route's session mark (`TRADING_METADATA_MARK` in the app). */
+const MARCA_CHAT_TRADING = "opencode.trading"
+
+/** How long the quit waits for the chat's removal: a stalled sidecar must not hold the exit
+ * (the next launch's sweep still removes whatever is left). */
+const BORRADO_MS = 3_000
+
+/**
+ * The dedicated trading chat lives for one app run: its messages go when the app closes, so
+ * the next launch opens on an empty chat with no history anywhere. Every marked session on
+ * the sidecar is removed here, best effort and bounded; a crash or a timeout leaves the
+ * removal to the next launch's own sweep.
+ */
+export const borrarChatsTrading = async () => {
+  const sidecar = SidecarCredentials.get()
+
+  if (!sidecar) return
+  const authorization = SidecarCredentials.authorization(sidecar, sidecar.url)
+  const { OpenCode } = await import("@opencode/client")
+  const api = OpenCode.make({ baseUrl: sidecar.url, headers: authorization ? { authorization } : {} })
+  const signal = AbortSignal.timeout(BORRADO_MS)
+  const marcadas: string[] = []
+  let cursor: string | undefined
+
+  for (;;) {
+    const pagina = await api.session.list(
+      cursor ? { limit: 5_000, order: "desc", parentID: null, cursor } : { limit: 5_000, order: "desc", parentID: null },
+      { signal },
+    )
+
+    marcadas.push(...pagina.data.filter((session) => session.metadata?.[MARCA_CHAT_TRADING] === true).map((session) => session.id))
+
+    if (pagina.data.length < 5_000 || !pagina.cursor.next) break
+    cursor = pagina.cursor.next
+  }
+
+  await Promise.allSettled(marcadas.map((sessionID) => api.session.remove({ sessionID }, { signal })))
+}
+
 /** Asked once at app quit, before the windows close — the one chance a normal quit has to warn. */
 export const confirmTradingQuit = () => decidirCierre(undefined).then(({ permitido }) => permitido)

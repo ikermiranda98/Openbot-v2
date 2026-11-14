@@ -8,7 +8,9 @@ import { ORDEN_PY } from "../src/trading/mt5-ordenes.js"
 // `mt5.initialize()` launches a closed MetaTrader 5 terminal, and the app never opens MT5 on its
 // own. So when the process list cannot say whether the terminal runs, the scripts must treat it
 // as unknown and stay away; they used to assume it open and attach (which could launch it).
-const python = Bun.which("python") ?? Bun.which("python3")
+// The Microsoft Store's WindowsApps alias is a stub, not an interpreter: it counts as no Python.
+const real = (ruta: string | null) => (ruta === null || /\\WindowsApps\\/i.test(ruta) ? null : ruta)
+const python = real(Bun.which("python")) ?? real(Bun.which("python3"))
 
 /** Runs python with `prelude` executed before `script`, a fake MetaTrader5 package on the path
  * whose initialize() only records the call, and `args` as the script's argv. */

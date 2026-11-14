@@ -238,6 +238,10 @@ function createServerController(
     current: () => {
       const route = currentRoute()
 
+      // The trading desk's dedicated chat is no tab and no session route: without naming it here
+      // its transcript was evicted as soon as it loaded, and the chat never showed a message.
+      if (route.type === "trading") return route.server === connKey ? route.sessionId : undefined
+
       return route.type === "session" && route.server === connKey ? route.sessionId : undefined
     },
     // Until the stored tabs load, keep every transcript so startup never evicts a tab's session.

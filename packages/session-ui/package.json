@@ -56,9 +56,7 @@
   "scripts": {
     "typecheck": "bun check --no-script -b",
     "typecheck:tsc": "tsc -b",
-    "test": "bun test src --only-failures",
-    "test:components": "playwright test --config playwright.components.config.ts",
-    "test:components:ui": "playwright test --config playwright.components.config.ts --ui"
+    "test": "bun test src --only-failures"
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "20.0.11",

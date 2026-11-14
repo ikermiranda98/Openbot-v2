@@ -9,7 +9,7 @@ import { DesktopStorage } from "../storage"
 import { safeWebContentsURL } from "../windows/state"
 import { getLastFocusedWindow, mainWindows, setAppQuitting } from "../windows"
 import type { Scope } from "@opencode/plugin/gui/host"
-import { confirmTradingQuit, consumirCierreAprobado } from "../windows/trading-close"
+import { borrarChatsTrading, confirmTradingQuit, consumirCierreAprobado } from "../windows/trading-close"
 import { marks } from "./marks"
 import {
   createDriver,
@@ -132,9 +132,20 @@ const runtime = Layer.effect(
         if (puertaCierre.preguntando) return
         // The last window's own approval is the quit's: a close the user just allowed ends the
         // book without a second question. Anything else drops a stale approval and asks.
+        // An approved quit first removes the dedicated trading chat (bounded, best effort):
+        // the chat lives for one app run, so the next launch opens with no history.
+        const salir = () =>
+          borrarChatsTrading()
+            .catch(() => undefined)
+            .then(() => {
+              puertaCierre.aprobada = true
+              app.quit()
+            })
         if (BrowserWindow.getAllWindows().length === 0 && consumirCierreAprobado()) {
-          puertaCierre.aprobada = true
-          app.quit()
+          puertaCierre.preguntando = true
+          void salir().finally(() => {
+            puertaCierre.preguntando = false
+          })
           return
         }
         consumirCierreAprobado()
@@ -146,8 +157,7 @@ const runtime = Layer.effect(
               setAppQuitting(false)
               return
             }
-            puertaCierre.aprobada = true
-            app.quit()
+            return salir()
           })
           // A rejected ask (a window destroyed under its own dialog) must not wedge the gate:
           // with `preguntando` cleared the quit stays prevented and the next one asks again —

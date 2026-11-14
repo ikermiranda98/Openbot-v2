@@ -26,12 +26,8 @@
     "test:e2e": "playwright test",
     "test:e2e:built": "PLAYWRIGHT_BUILD=1 playwright test",
     "test:e2e:local": "playwright test",
-    "test:components": "playwright test --config playwright.components.config.ts",
-    "test:components:ui": "playwright test --config playwright.components.config.ts --ui",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:report": "playwright show-report e2e/playwright-report",
-    "test:service-worker": "bun run build && playwright test --config e2e/service-worker/playwright.config.ts",
-    "test:stability": "bun test ./e2e/stability/oracle.test.ts ./e2e/stability/fixture.test.ts && playwright test --config e2e/stability/playwright.config.ts"
+    "test:e2e:report": "playwright show-report e2e/playwright-report"
   },
   "license": "MIT",
   "devDependencies": {

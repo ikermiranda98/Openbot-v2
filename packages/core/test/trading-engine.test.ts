@@ -405,11 +405,19 @@ describe("TradingEngine", () => {
         yield* Effect.promise(() => new Promise<void>((resolve) => servidor.close(() => resolve())))
         expect((yield* engine.ibkrDetect({ host: "127.0.0.1", port: puerto }))[0]?.open).toBe(false)
 
-        // Without an address the search walks the two defaults, paper before live.
+        // Without an address the search walks TWS's two defaults, then IB Gateway's, paper
+        // before live: a desk on Gateway must be found too.
         expect((yield* engine.ibkrDetect({})).map((fila) => [fila.port, fila.live])).toEqual([
           [7497, false],
           [7496, true],
+          [4002, false],
+          [4001, true],
         ])
+
+        // Gateway's live port takes the same live confirmation as TWS's.
+        const gatewayReal = yield* Effect.flip(engine.linkAdd({ host: "127.0.0.1", port: 4001 }))
+        expect(gatewayReal).toBeInstanceOf(InvalidTaskError)
+        expect(gatewayReal.message).toContain("live: true")
 
         const mala = yield* Effect.flip(engine.ibkrDetect({ host: "no válido/", port: 7497 }))
         expect(mala.message).toBe("A TWS host must be a loopback or private-network IP literal (127.0.0.0/8, ::1, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7).")

@@ -338,6 +338,21 @@ const ejecutalo = async (ruta: string, argumentos: readonly string[], timeout: n
     })
   })
 
+/** The real Python on this computer, windowless first. `where` lists every match on PATH; the
+ * Microsoft Store's WindowsApps alias is a stub that opens the Store instead of running a
+ * script, so it never counts. Null when no real interpreter is installed. */
+const localizarPython = async (): Promise<string | null> => {
+  if (process.platform !== "win32") return null
+  for (const nombre of ["pythonw", "python", "py"]) {
+    const ruta = (await ejecutalo("where", [nombre], 5_000))
+      .split(/\r?\n/)
+      .map((linea) => linea.trim())
+      .find((linea) => linea !== "" && !/\\WindowsApps\\/i.test(linea))
+    if (ruta !== undefined) return ruta
+  }
+  return null
+}
+
 /** Whether a pid still belongs to a live process — three-way like `pidEsBot`: `true`/`false`
  * only when tasklist answered (a checked no is its "no tasks match" line), `null` when the
  * check itself could not answer (blocked, killed by the timeout). Callers that may kill
@@ -390,14 +405,21 @@ const pidEsBot = async (pid: number, dir: string | null): Promise<boolean | null
   return salida.toLowerCase().includes("pythonw")
 }
 
-/** The IBKR API defaults the port search knocks on: TWS's paper port first, then the live one. */
+/** The IBKR API defaults the port search knocks on: TWS paper and live first, then IB
+ * Gateway paper (4002) and live (4001) — a desk running Gateway instead of TWS must be found too. */
 const PUERTOS_IBKR = [
   { port: 7497, live: false },
   { port: 7496, live: true },
+  { port: 4002, live: false },
+  { port: 4001, live: true },
 ] as const
 
+/** The live (real-money) API ports: TWS live and IB Gateway live. A watch on either needs
+ * the explicit live confirmation. */
+const PUERTOS_REALES: ReadonlySet<number> = new Set(PUERTOS_IBKR.filter((puerto) => puerto.live).map((puerto) => puerto.port))
+
 /** What a TWS port says about the money behind it, for the record: only TWS's two default
- * ports name it (7496 live, 7497 paper); any other port says nothing it cannot know. */
+ * ports name it (7496/4001 live, 7497/4002 paper); any other port says nothing it cannot know. */
 const entornoPuerto = (port: number) => {
   const fila = PUERTOS_IBKR.find((defecto) => defecto.port === port)
   if (fila === undefined) return ""
@@ -710,8 +732,14 @@ export const layer = (options: Options = {}) =>
     Service,
     Effect.gen(function* () {
       const db = (yield* Database.Service).db
-      const host = options.host ?? "127.0.0.1"
-      const port = options.port ?? 7497
+      // The primary (trading) socket's address: a passed build, then the env keys
+      // TRADING_TWS_HOST / TRADING_TWS_PORT (a desk on TWS live 7496 or IB Gateway 4001/4002
+      // had no way to point its trading connection anywhere but 7497), then TWS paper.
+      const hostEntorno = opcionEntorno("TRADING_TWS_HOST")
+      const puertoEntorno = Number(opcionEntorno("TRADING_TWS_PORT"))
+      const host = options.host ?? (hostEntorno !== undefined && hostTwsPermitido(hostEntorno) ? hostEntorno : "127.0.0.1")
+      const port =
+        options.port ?? (Number.isSafeInteger(puertoEntorno) && puertoEntorno >= 1 && puertoEntorno <= 65_535 ? puertoEntorno : 7497)
       // The pool folder. A passed build wins; then the folder the user picked (persisted, read
       // at boot below), the env key, or empty. A pick can move it at runtime.
       const carpetaPool = { value: options.systemsDir ?? opcionEntorno("TRADING_SYSTEMS_DIR") }
@@ -1047,6 +1075,19 @@ export const layer = (options: Options = {}) =>
         logs.value = logs.value.length >= 800 ? [...logs.value.slice(-799), entry] : [...logs.value, entry]
       }
       pushLog("info", "motor", `Native engine started · programs open only on connect · primary link ${host}:${port}`, { message_key: "trading.log.motor.started", message_params: { host, port } })
+
+      // The Python every bot and every MetaTrader 5 bridge runs on, resolved once at boot —
+      // whatever the pool holds: it used to be looked up only when a systems folder loaded, so
+      // a desk with MT5 links and no pool ran the bridge on a bare "pythonw" that may not exist.
+      const pythonLocalizado = yield* Effect.promise(localizarPython)
+      if (pythonLocalizado !== null) pythonwEjecutable = pythonLocalizado
+      else if (process.platform === "win32")
+        pushLog(
+          "warning",
+          "motor",
+          "Python not found on this computer (the Microsoft Store shortcut does not count) · the MetaTrader 5 bridge and the bots need it: install Python from python.org, then run `pip install MetaTrader5`",
+          { message_key: "trading.log.python.missing", message_params: {} },
+        )
 
       // Subscriber callbacks run on IB socket threads outside the Effect runtime; the only
       // failure surface there is the callback itself, so guarding is the real boundary.
@@ -1910,8 +1951,6 @@ export const layer = (options: Options = {}) =>
           if (def.servidor !== null && def.servidor !== `${host}:${port}`)
             pushLog("warning", def.name, `config.py points to ${def.servidor} · the engine watches ${host}:${port}`, { message_key: "trading.log.system.config_mismatch", message_params: { server: def.servidor, host, port } })
         }
-        const rutaPythonw = (await ejecutalo("where", ["pythonw"], 5_000)).split(/\r?\n/)[0]?.trim() ?? ""
-        if (rutaPythonw !== "") pythonwEjecutable = rutaPythonw
         pushLog("info", "motor", `System pool loaded from ${carpeta} (${sistemas.length} systems)`, { message_key: "trading.log.pool.loaded", message_params: { folder: carpeta, count: sistemas.length } })
         await Promise.all(
           sistemas.map(async (def) => {
@@ -3638,9 +3677,9 @@ export const layer = (options: Options = {}) =>
           return yield* new InvalidTaskError({ message: "port must be a TCP port (1-65535)." })
         // TWS's live port gates itself: 7496 is the real-money API; its demo sibling (7497)
         // registers without a confirmation.
-        if (input.port === 7496 && input.live !== true)
+        if (PUERTOS_REALES.has(input.port) && input.live !== true)
           return yield* new InvalidTaskError({
-            message: "Port 7496 is TWS's live API: this request carried no confirmation. Repeat it with live: true once the user has confirmed.",
+            message: `Port ${input.port} is ${input.port === 4001 ? "IB Gateway" : "TWS"}'s live API: this request carried no confirmation. Repeat it with live: true once the user has confirmed.`,
           })
         // The link id builds on the host, so it keeps a label's discipline: trimmed, a plain
         // address, at most 80 characters.
@@ -3710,7 +3749,30 @@ export const layer = (options: Options = {}) =>
             cuentaMT5Linea(enlace, leyendo.value)
           }),
         )
-        child.on("error", (error) => pushLog("error", "motor", `MT5 bridge ${id}: could not start the Python bridge: ${String(error)}`, { message_key: "trading.log.mt5.bridge_start_failed", message_params: { id, error: String(error) } }))
+        /** One respawn in 5 s (30 s after a failed launch: a missing Python cannot fix itself
+         * every 5 s), tracked so the shutdown finalizer can clear it. */
+        const reprogramar = (ms: number) => {
+          clearTimeout(reintentosPuente.get(id))
+          reintentosPuente.set(
+            id,
+            setTimeout(() => {
+              reintentosPuente.delete(id)
+              if (apagadoMT5) return
+              if (enlaces.has(id) && enlace.child === null) arrancarPuenteMT5(enlace)
+            }, ms),
+          )
+        }
+        child.on("error", (error) => {
+          // A launch that never started may fire no exit at all: the link would stay without
+          // a bridge for good. The error owns the retry then.
+          if (enlace.motivo !== `spawn:${String(error)}`) {
+            enlace.motivo = `spawn:${String(error)}`
+            pushLog("error", "motor", `MT5 bridge ${id}: could not start the Python bridge (${pythonwEjecutable}): ${String(error)} · install Python and run \`pip install MetaTrader5\``, { message_key: "trading.log.mt5.bridge_start_failed", message_params: { id, error: String(error) } })
+          }
+          if (enlace.child !== child) return
+          enlace.child = null
+          reprogramar(30_000)
+        })
         child.on("exit", (code) => {
           if (enlace.child !== child) return
           enlace.child = null
@@ -3723,11 +3785,7 @@ export const layer = (options: Options = {}) =>
             enlace.cierres = []
         pushLog("warning", "motor", `MT5 bridge ${id} down (code ${code ?? "unknown"}) · retrying every 5 s`, { message_key: "trading.log.mt5.bridge_down", message_params: { id, code: code ?? "unknown" } })
           }
-          setTimeout(() => {
-            reintentosPuente.delete(id)
-            if (apagadoMT5) return
-            if (enlaces.has(id) && enlace.child === null) arrancarPuenteMT5(enlace)
-          }, 5_000)
+          reprogramar(5_000)
         })
       }
 
@@ -4075,4 +4133,6 @@ export const layer = (options: Options = {}) =>
 
 export const engineLayer = layer()
 
-export const node = makeGlobalNode({ service: Service, layer: engineLayer, deps: [Database.node] })
+// The boot reloads only links it already validated, so a refusal there is a defect, never a
+// startup error every service that depends on the engine would have to carry.
+export const node = makeGlobalNode({ service: Service, layer: engineLayer.pipe(Layer.orDie), deps: [Database.node] })

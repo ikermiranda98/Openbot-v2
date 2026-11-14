@@ -22,7 +22,9 @@ export const DESCARGA: Record<Programa, string> = {
 
 /** The process images each program runs as. */
 const IMAGENES: Record<Programa, readonly string[]> = {
-  tws: ["tws.exe"],
+  // IB Gateway serves the same API: a desk running it instead of TWS has its program open,
+  // and Connect must not launch a second TWS beside it.
+  tws: ["tws.exe", "ibgateway.exe"],
   mt5: ["terminal64.exe"],
 }
 

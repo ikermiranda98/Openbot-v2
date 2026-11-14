@@ -249,7 +249,7 @@ export const { use: useSettingsSurface, provider: SettingsSurfaceProvider } = cr
           dispatch({ type: "view.synced", view: current })
         },
       },
-      open(tab: SettingsRootTab | SettingsPluginTab = "general") {
+      open(tab: SettingsRootTab | SettingsPluginTab = "appearance") {
         show({ type: "root", tab })
       },
       /** Shows another server on the per-server pages, staying on the current page. */

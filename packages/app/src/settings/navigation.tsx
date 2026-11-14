@@ -34,7 +34,8 @@ export function SettingsNavigation(props: {
   children: JSX.Element
 }) {
   const surface = useSettingsSurface()
-  const searchable = () => surface.view().type === "root"
+  // Openbot keeps two settings pages only (Appearance and Dictation): nothing to search.
+  const searchable = () => false
   const language = useLanguage()
 
   const back = () => {

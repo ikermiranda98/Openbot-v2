@@ -1,11 +1,10 @@
-import { Route, useParams } from "@solidjs/router"
-import { createMemo, lazy, Show, Suspense, type ParentProps } from "solid-js"
-import { Home } from "@/home/route"
+import { Navigate, Route, useParams } from "@solidjs/router"
+import { createMemo, lazy, Show, type ParentProps } from "solid-js"
 import { ServerProvider } from "@/runtime/server/current"
 import { useGlobal } from "@/runtime/server/runtime"
 import { ServerConnection, useServers } from "@/runtime/server/registry"
 import { isServerUnauthorized } from "@/runtime/server/health-machine"
-import { SessionPanelFrame, SessionRouteFrame } from "@/session/session-frame"
+import { SessionPanelFrame } from "@/session/session-frame"
 import { ServerSignedOutPanel } from "@/session/server-unavailable-panel"
 import { LayoutProvider } from "@/shell/state/layout"
 import { SettingsSurfaceProvider } from "@/settings/surface"
@@ -15,25 +14,10 @@ import { PluginAttachment } from "@/runtime/plugin/root"
 
 export const File = lazy(() => import("@opencode/session-ui/file").then((module) => ({ default: module.File })))
 
-const loadSessionRoute = () => Promise.all([import("@/session/route"), File.preload()]).then(([module]) => module)
-
-const DraftRoute = lazy(() => import("@/new-session/route").then((module) => ({ default: module.DraftRoute })))
-
 const SettingsScreen = lazy(() => import("@/settings/shell").then((module) => ({ default: module.SettingsScreen })))
 
 const ConnectServerScreen = lazy(() =>
   import("@/servers/connect/screen").then((module) => ({ default: module.ConnectServerScreen })),
-)
-
-// The dev server and Beta only. Both are fixed at build time, so other builds, prod included, drop the import and never
-// contain the lab, its stories or knobs. Beta loads it as its own chunk, only when /components opens.
-const ComponentsLab =
-  import.meta.env.DEV || import.meta.env.VITE_OPENCODE_CHANNEL === "beta"
-    ? lazy(() => import("@/components-lab/lab"))
-    : undefined
-
-const TargetSessionRouteContent = lazy(() =>
-  loadSessionRoute().then((module) => ({ default: module.TargetSessionRouteContent })),
 )
 
 const TradingRouter = lazy(() => import("@/trading/route").then((module) => ({ default: module.TradingRouter })))
@@ -43,24 +27,23 @@ const TradingWithSession = lazy(() => import("@/trading/route").then((module) =>
 export function preloadRoute(url: string) {
   const pathname = url.split(/[?#]/, 1)[0]
 
-  if (pathname === "/new-session") return DraftRoute.preload().then(() => undefined)
-
   if (pathname === "/settings") return SettingsScreen.preload().then(() => undefined)
-
-  if (pathname === "/trading") return TradingRouter.preload().then(() => undefined)
 
   if (/^\/trading\/[^/]+\/[^/]+$/.test(pathname)) return TradingWithSession.preload().then(() => undefined)
 
-  if (/^\/server\/[^/]+\/session\/[^/]+$/.test(pathname))
-    return TargetSessionRouteContent.preload().then(() => undefined)
-
-  return Promise.resolve()
+  // Every other path lands on the desk.
+  return TradingRouter.preload().then(() => undefined)
 }
+
+/** Openbot is the trading desk alone: every surface that is not the dashboard (Home, the
+ * coding sessions, drafts) lands on the desk instead. Settings stays — the desk's chat needs
+ * its model and provider configured there. */
+const AlEscritorio = () => <Navigate href="/trading" />
 
 export function AppRoutes() {
   return (
     <Route component={AppLayout}>
-      <Route path="/" component={Home} />
+      <Route path="/" component={AlEscritorio} />
       {/* `/trading` redirects itself to `/trading/<server>/new`: the desk lands there, and the
           section creates no chat — the dedicated chat boots only when its pane opens. */}
       <Route path="/trading" component={TradingRouter} />
@@ -73,26 +56,9 @@ export function AppRoutes() {
         )}
       />
       <Route path="/settings" component={SettingsScreen} />
-      <Route
-        path="/server/:serverKey/session/:id"
-        component={() => (
-          <SessionRouteFrame>
-            <Suspense
-              fallback={
-                <div class="flex min-h-0 flex-1 px-[var(--shell-inline-inset,8px)] pb-[var(--shell-bottom-inset,8px)] pt-[var(--shell-top-inset,8px)]">
-                  <SessionPanelFrame raised />
-                </div>
-              }
-            >
-              <TargetServerRoute>
-                <TargetSessionRouteContent />
-              </TargetServerRoute>
-            </Suspense>
-          </SessionRouteFrame>
-        )}
-      />
-      <Route path="/new-session" component={DraftRoute} />
-      {ComponentsLab && <Route path="/components" component={ComponentsLab} />}
+      <Route path="/server/:serverKey/session/:id" component={AlEscritorio} />
+      <Route path="/new-session" component={AlEscritorio} />
+      <Route path="*" component={AlEscritorio} />
     </Route>
   )
 }

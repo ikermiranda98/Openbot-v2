@@ -63,7 +63,7 @@ const TargetSessionRouteContent = lazy(() =>
   import("@/session/route").then((module) => ({ default: module.TargetSessionRouteContent })),
 )
 
-import { isTradingSession, scanTradingSessions, TRADING_DESK_CONTEXT, TRADING_METADATA_MARK, TRADING_SESSION_WINDOW } from "./session"
+import { isTradingSession, scanTradingSessions, TRADING_DESK_CONTEXT, TRADING_METADATA_MARK, TRADING_SESSION_PERMISSIONS, TRADING_SESSION_WINDOW } from "./session"
 import { uuid } from "@opencode/util/uuid"
 import { Trading } from "@opencode/schema/trading"
 import "./trading.css"
@@ -528,6 +528,11 @@ function createChatBoot(props: { semilla: () => string; listo: () => boolean; ch
     const info = await sdk.api.session.create({
       title: language.t("trading.title"),
       metadata: { [TRADING_METADATA_MARK]: true, [TRADING_SESSION_WINDOW]: ventanaLocal },
+      // The desk's chat only reads and drives the trading engine: no shell, no files, no web.
+      // Without this it ran on the coding agent's rules, and with the trading tools missing it
+      // went digging through the computer (it read the local server's credential file).
+      // The session's rules are evaluated last, so they override the agent's.
+      permissions: TRADING_SESSION_PERMISSIONS,
     })
 
     data.session.remember(info)

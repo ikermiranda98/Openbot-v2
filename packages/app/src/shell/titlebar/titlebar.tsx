@@ -1,8 +1,6 @@
 import { createEffect, createMemo, createSignal, Match, on, onCleanup, Show, Switch, untrack } from "solid-js"
 import { Portal } from "solid-js/web"
 import { useLocation } from "@solidjs/router"
-import { uuid } from "@opencode/util/uuid"
-import { useDialog } from "@opencode/ui/context/dialog"
 import { IconButton } from "@opencode/ui/icon-button"
 import { Icon } from "@opencode/ui/icon"
 import { Keybind } from "@opencode/ui/keybind"
@@ -25,17 +23,13 @@ import { makeEventListener } from "@solid-primitives/event-listener"
 import { createMediaQuery } from "@solid-primitives/media"
 import { readSessionTabsRemovedDetail, SESSION_TABS_REMOVED_EVENT } from "@/shell/titlebar/session-events"
 import { useGlobal } from "@/runtime/server/runtime"
-import { ServerConnection } from "@/runtime/server/registry"
 import { tabKey, useTabs } from "@/shell/tabs/tabs"
-import type { ComposerState } from "@/composer/persistence"
 import "./titlebar.css"
 import { MobileDrawer, MobileDrawerContent, MobileDrawerLabel, MobileDrawerTrigger } from "@/shell/mobile-drawer"
 import { sessionTabTitle } from "./tab-title"
 import { SessionTabAvatarView } from "@/shell/layout/session-tab-avatar"
 import { useSessionTabAvatarState } from "@/shell/layout/project-avatar-state"
 import { ActivityRing } from "@opencode/ui/activity-ring"
-import { RecentlyClosedTabsMenu } from "./recently-closed-tabs-menu"
-import { ProductSwitcher } from "./product-switcher"
 import { FreeDailyUsageRing } from "@/usage/free-daily-ring"
 import { useSettingsDialog } from "@/settings/command"
 import { TitlebarItems, useTitlebarItems } from "@/runtime/plugin/titlebar-items"
@@ -58,7 +52,7 @@ export const goForwardCommand = { id: "common.goForward", keybind: "mod+]" }
 
 const titlebarHeight = 36
 
-const windowsTitlebarHeight = 44 // Includes the content inset; matches the native Windows overlay.
+const windowsTitlebarHeight = 36 // The slim caption strip; matches the native Windows overlay (desktop defaults.ts).
 
 const minTitlebarZoom = 0.25
 
@@ -79,7 +73,6 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement }; sideba
   const settings = useSettings()
 
   const openSettings = useSettingsDialog()
-  const dialog = useDialog()
   const location = useLocation()
   const mobile = createMediaQuery("(max-width: 767px)")
   const bottom = createMemo(() => mobile() && settings.general.mobileTitlebarPosition() === "bottom")
@@ -231,117 +224,18 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement }; sideba
               tabsStoreActions.removeSessions(detail)
             })
 
-            /** Opens draft `draftID` for the current context. Returns false when there is nothing to open it in. */
-            const openDraft = (draftID: string) => {
-              const route = layout.route()
-
-              switch (route.type) {
-                case "session": {
-                  const pending = tabs.pendingSession(route.server, route.sessionId)
-
-                  if (pending) {
-                    const model = tabs.stateValue<ComposerState>(pending.draft, "prompt")?.model.current()
-                    void tabs.newDraft({ server: route.server, directory: pending.draft.directory, draftID }, "", model)
-
-                    return true
-                  }
-
-                  const activeSession = session()
-
-                  if (!activeSession) return false
-
-                  const sessionTab = {
-                    type: "session" as const,
-                    server: route.server,
-                    sessionId: activeSession.id,
-                  }
-
-                  const model = tabs.stateValue<ComposerState>(sessionTab, "prompt")?.model.current()
-                  void tabs.newDraft(
-                    { server: sessionTab.server, directory: activeSession.location.directory, draftID },
-                    "",
-                    model,
-                  )
-
-                  return true
-                }
-
-                case "draft": {
-                  const activeTab = currentTab()
-
-                  if (activeTab?.type !== "draft") return false
-
-                  const model = tabs.stateValue<ComposerState>(activeTab, "prompt")?.model.current()
-                  void tabs.newDraft({ server: activeTab.server, directory: activeTab.directory, draftID }, "", model)
-
-                  return true
-                }
-
-                case "trading": {
-                  // The trading section runs on its own server, so "New session" drafts there: the
-                  // project is the last one used on that server (the same rule the Home branch follows).
-                  const conn =
-                    (route.server && global.servers.list().find((item) => ServerConnection.key(item) === route.server)) ??
-                    global.servers.list()[0]
-
-                  const projects = conn ? global.serverCtx(ServerConnection.key(conn))?.projects : undefined
-
-                  const project = projects?.last() ?? projects?.list()[0]
-
-                  if (conn && project) {
-                    void tabs.newDraft({ server: ServerConnection.key(conn), directory: project.worktree }, "")
-
-                    return true
-                  }
-
-                  return false
-                }
-
-                case "settings":
-                case "connect":
-                case "components":
-                case "home": {
-                  const selection = layout.home.selection()
-
-                  const conn =
-                    global.servers.list().find((item) => ServerConnection.key(item) === selection.server) ??
-                    global.servers.list()[0]
-
-                  const projects = conn ? global.serverCtx(ServerConnection.key(conn))?.projects : undefined
-
-                  const project =
-                    projects?.list().find((item) => item.worktree === selection.directory) ??
-                    projects?.last() ??
-                    projects?.list()[0]
-
-                  if (conn && project) {
-                    void tabs.newDraft({ server: ServerConnection.key(conn), directory: project.worktree, draftID }, "")
-
-                    return true
-                  }
-
-                  return false
-                }
-              }
-            }
-
-            const openNewTab = () => openDraft(uuid())
-
-            const toggleHome = () => tabs.toggleHome({ home: layout.route().type === "home", current: currentTab() })
-
             const toggleTrading = () => tabs.toggleTrading({ trading: layout.route().type === "trading", current: currentTab() })
 
-            // The product switcher's asks: a move is ignored when the shell already sits on the target
-            // product, so marking the active entry never trips the toggles' swap into the other surface.
-            const goToOpenCode = () => {
-              if (layout.route().type !== "trading") return
-              toggleHome()
-            }
-
+            // Openbot is the trading desk alone: every "home" or "new tab" ask lands on the desk,
+            // and a move is ignored when the shell already sits there.
             const goToTrading = () => {
               if (layout.route().type === "trading") return
               toggleTrading()
             }
+
+            const openNewTab = goToTrading
+
+            const toggleHome = goToTrading
 
             const verticalTabStrip = (
               highlightActive?: () => boolean,
@@ -379,7 +273,7 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement }; sideba
                     placement="bottom"
                     value={
                       <>
-                        {language.t("home.title")}
+                        {language.t("trading.title")}
                         <Keybind keys={command.keybindParts("home.toggle")} variant="neutral" />
                       </>
                     }
@@ -390,11 +284,11 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement }; sideba
                       variant="ghost-muted"
                       size="large"
                       class="!w-9 shrink-0"
-                      icon={<Icon name="grid-plus" />}
-                      state={layout.route().type === "home" ? "pressed" : undefined}
+                      icon={<Icon name="trading-chart" />}
+                      state={layout.route().type === "trading" ? "pressed" : undefined}
                       onClick={toggleHome}
-                      aria-label={language.t("home.title")}
-                      aria-pressed={layout.route().type === "home"}
+                      aria-label={language.t("trading.title")}
+                      aria-pressed={layout.route().type === "trading"}
                     />
                   </Tooltip>
                 }
@@ -403,58 +297,16 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement }; sideba
                   type="button"
                   data-titlebar-tab-action
                   data-action="vertical-tabs-home"
-                  data-state={layout.route().type === "home" ? "pressed" : undefined}
+                  data-state={layout.route().type === "trading" ? "pressed" : undefined}
                   class="group flex h-7 w-full shrink-0 items-center gap-2 rounded-[6px] px-2 text-[13px] leading-4 text-v2-text-text-faint hover:text-v2-text-text-base data-[state=pressed]:text-v2-text-text-base"
                   onClick={toggleHome}
-                  aria-label={language.t("home.title")}
-                  aria-pressed={layout.route().type === "home"}
+                  aria-label={language.t("trading.title")}
+                  aria-pressed={layout.route().type === "trading"}
                 >
-                  <Icon name="grid-plus" class="shrink-0" />
-                  <span class="min-w-0 truncate">{language.t("home.title")}</span>
+                  <Icon name="trading-chart" class="shrink-0" />
+                  <span class="min-w-0 truncate">{language.t("trading.title")}</span>
                   <div class="ms-auto hidden shrink-0 group-hover:block group-focus-visible:block" aria-hidden="true">
                     <Keybind keys={command.keybindParts("home.toggle")} variant="neutral" dir="ltr" />
-                  </div>
-                </button>
-              </Show>
-            )
-
-            const searchButton = (vertical = false) => (
-              <Show
-                when={vertical}
-                fallback={
-                  <Tooltip
-                    placement="bottom"
-                    value={
-                      <>
-                        {language.t("command.session.search")}
-                        <Keybind keys={command.keybindParts("sessions.search")} variant="neutral" />
-                      </>
-                    }
-                    class="shrink-0"
-                  >
-                    <IconButton
-                      type="button"
-                      variant="ghost-muted"
-                      size="large"
-                      class="!w-9 shrink-0"
-                      icon={<Icon name="magnifying-glass" />}
-                      onClick={() => command.trigger("sessions.search")}
-                      aria-label={language.t("command.session.search")}
-                    />
-                  </Tooltip>
-                }
-              >
-                <button
-                  type="button"
-                  data-titlebar-tab-action
-                  data-action="vertical-tabs-search"
-                  class="group flex h-7 w-full shrink-0 items-center gap-2 rounded-[6px] px-2 text-[13px] leading-4 text-v2-text-text-faint hover:text-v2-text-text-base"
-                  onClick={() => command.trigger("sessions.search")}
-                >
-                  <Icon name="magnifying-glass" class="shrink-0" />
-                  <span class="min-w-0 truncate">{language.t("command.session.search")}</span>
-                  <div class="ms-auto hidden shrink-0 group-hover:block group-focus-visible:block" aria-hidden="true">
-                    <Keybind keys={command.keybindParts("sessions.search")} variant="neutral" dir="ltr" />
                   </div>
                 </button>
               </Show>
@@ -467,20 +319,7 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement }; sideba
                 category: language.t("command.category.view"),
                 keybind: windows() ? "alt+home" : "mod+b",
                 hidden: true,
-                onSelect: () => {
-                  if (layout.route().type !== "home") layout.home.searchFocus.request()
-                  toggleHome()
-                },
-              },
-              {
-                id: "sessions.search",
-                title: language.t("command.session.search"),
-                category: language.t("command.category.session"),
-                keybind: "mod+shift+f",
-                onSelect: async () => {
-                  const { DialogSessionSearch } = await import("@/shell/commands/session-search")
-                  void dialog.show(() => <DialogSessionSearch />)
-                },
+                onSelect: toggleHome,
               },
             ])
 
@@ -529,21 +368,6 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement }; sideba
                 },
               ].filter((v) => v !== undefined)
             })
-
-            // A draft registers this command under the same key and shadows it while mounted, searching projects in place.
-            // Sharing the key, not checking the route, keeps exactly one owner while the router commits a transition.
-            command.register(projectSearchCommand.id, () => [
-              {
-                ...projectSearchCommand,
-                title: language.t("session.new.project.search"),
-                category: language.t("command.category.project"),
-                onSelect: () => {
-                  const draftID = uuid()
-
-                  if (openDraft(draftID)) layout.draft.projectSearch.request(draftID)
-                },
-              },
-            ])
 
             const [mobileTabsState, setMobileTabsState] = createSignal(INITIAL_MOBILE_TABS_STATE)
             let closeTimer: ReturnType<typeof setTimeout> | undefined
@@ -634,20 +458,8 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement }; sideba
                   </div>
                 </Show>
                 <Show when={!mobile()}>
-                  <ProductSwitcher
-                    trading={layout.route().type === "trading"}
-                    aOpenCode={goToOpenCode}
-                    aTrading={goToTrading}
-                  />
-                  {/* Today's use of OpenCode's free allowance, right beside the products. */}
+                  {/* Today's use of the free model allowance the desk's chat runs on. */}
                   <FreeDailyUsageRing />
-                </Show>
-                {/* Trading is its own section: no home or session search beside the products. */}
-                <Show when={!mobile() && !props.verticalTabs && layout.route().type !== "trading"}>
-                  <div class="flex shrink-0 items-center gap-0.5">
-                    {homeButton()}
-                    {searchButton()}
-                  </div>
                 </Show>
 
                 <Show
@@ -722,33 +534,7 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement }; sideba
                               onReorder={(keys) => tabsStoreActions.reorder(keys)}
                             />
                           </div>
-                          <button
-                            type="button"
-                            data-action="mobile-tabs-new-session"
-                            class="flex h-7 w-full shrink-0 items-center gap-2 rounded-[6px] px-2 text-[13px] leading-4 text-v2-text-text-base hover:bg-v2-background-bg-layer-02 focus-visible:outline-none focus-visible:bg-v2-background-bg-layer-02"
-                            onClick={() => {
-                              openNewTab()
-                              closeMobileTabs()
-                            }}
-                          >
-                            <Icon name="plus" />
-                            {language.t("command.session.new")}
-                          </button>
                           <div class="flex shrink-0 flex-col gap-1 border-t border-v2-border-border-muted pt-2">
-                            <button
-                              type="button"
-                              data-action="mobile-tabs-home"
-                              data-state={layout.route().type === "home" ? "pressed" : undefined}
-                              aria-current={layout.route().type === "home" ? "page" : undefined}
-                              class="flex h-7 w-full items-center gap-2 rounded-[6px] px-2 text-[13px] leading-[var(--line-height-compact)] text-v2-text-text-faint data-[state=pressed]:text-v2-text-text-base focus-visible:outline-none"
-                              onClick={() => {
-                                if (layout.route().type !== "home") toggleHome()
-                                closeMobileTabs()
-                              }}
-                            >
-                              <Icon name="grid-plus" />
-                              {language.t("home.title")}
-                            </button>
                             <button
                               type="button"
                               data-action="mobile-tabs-trading"
@@ -811,19 +597,6 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement }; sideba
                           onCloseTabs={(items, keep) => tabsStoreActions.closeTabs(items.map(tabKey), keep)}
                           onReorder={(keys) => tabsStoreActions.reorder(keys)}
                         />
-                        {/* The plus only opens chat tabs: while the desk owns the shell there is
-                            nothing new to open on its side of the switcher. */}
-                        <Show when={layout.route().type !== "trading"}>
-                          <RecentlyClosedTabsMenu
-                            onNewTab={openNewTab}
-                            tooltip={
-                              <>
-                                {language.t("command.session.new")}
-                                <Keybind keys={command.keybindParts("tab.new")} variant="neutral" />
-                              </>
-                            }
-                          />
-                        </Show>
                       </>
                     }
                   >
@@ -870,12 +643,6 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement }; sideba
                             </Show>
                             <div class="flex w-full shrink-0 flex-col gap-[3px]">
                               <Show when={!homeInSidebarHeader()}>{homeButton(true)}</Show>
-                              {searchButton(true)}
-                              <RecentlyClosedTabsMenu
-                                vertical
-                                onNewTab={openNewTab}
-                                keybind={command.keybindParts("tab.new")}
-                              />
                             </div>
                             <div class="h-4 w-full shrink-0" aria-hidden="true" />
                             <div class="flex min-h-0 flex-1 flex-col gap-1">

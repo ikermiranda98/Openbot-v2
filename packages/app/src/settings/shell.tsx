@@ -12,7 +12,7 @@ import { DialogServer } from "@/servers/connect/dialog"
 import { LocationProvider } from "@/workspaces/location"
 import { SettingsGeneral } from "./general/general"
 import { SettingsAppearance } from "./appearance/appearance"
-import { experimentalSettingsAvailable, SettingsExperimental } from "./experimental/experimental"
+import { SettingsExperimental } from "./experimental/experimental"
 import { SettingsKeybinds } from "./keybinds/keybinds"
 import { SettingsNotifications } from "./notifications/notifications"
 import { SettingsDictation } from "./dictation/dictation"
@@ -35,7 +35,7 @@ import { SettingsProjectGeneral } from "./workspaces/project"
 import { ProjectSettingsExtensions } from "./workspaces/project-extensions"
 import { useSettingsSurface } from "./surface"
 import { settingsViewRedirect } from "./route"
-import { pageIcons, pageLabels } from "./pages"
+import { pageIcons } from "./pages"
 import { PluginSettingsPages } from "@/runtime/plugin/settings-page-view"
 import "@/settings/settings.css"
 
@@ -68,12 +68,6 @@ const serverPages = {
   projects: { title: "settings.projects.title", description: "settings.projects.description" },
   workspaces: { title: "settings.tab.workspaces", description: "settings.workspaces.description" },
 } as const
-
-const experimentalTab = [
-  { value: "experimental", icon: pageIcons.experimental, label: "settings.tab.experimental" },
-] as const
-
-const aboutTab = [{ value: "about", icon: pageIcons.about, label: "settings.tab.about" }] as const
 
 const nestedProjectTabs = [
   { value: "general", icon: pageIcons.projects, label: "settings.general.section.general" },
@@ -194,57 +188,43 @@ function RootSettings() {
     return entry && serverPagesConnection(entry.availability)
   })
 
-  const prefetchWorkspaces = useWorkspacesPrefetch(reachable)
+  useWorkspacesPrefetch(reachable)
   const activeDirectory = useSettingsDirectory(reachable)
   createEffect(() => {
     const view = surface.view()
 
     if (view.type !== "root") return
 
-    if (view.tab === "experimental" && !experimentalSettingsAvailable) surface.open("general")
+    const permitida =
+      view.tab === "appearance" ||
+      view.tab === "providers" ||
+      view.tab === "models" ||
+      (view.tab === "dictation" && platform.voiceDictation)
+
+    if (!permitida) surface.open("appearance")
   })
 
   const selectServer = (server: ServerConnection.Any) => surface.selectServer(ServerConnection.key(server))
 
   const addServer = () => void dialog.push(() => <DialogServer mode="add" onSave={selectServer} />)
 
-  const pluginTabs = (group?: "about") =>
-    surface.plugins
-      .pages()
-      .filter((item) => item.value.group === group)
-      .map((item) => ({ value: item.value.id, icon: item.value.icon ?? pageIcons.extensions, label: item.value.title }))
-
+  // Openbot is the trading desk alone: only the pages it needs stay — the chat's provider and
+  // model, the theme and dictation. Every other page stays out of the menu, and any route to
+  // one lands on Appearance.
   const groups = createMemo<SettingsNavGroup[]>(() => [
     {
-      items: serverTabs.map((item) => ({
-        ...item,
-        label: language.t(item.label),
-        onPrefetch: item.value === "workspaces" ? prefetchWorkspaces : undefined,
-      })),
+      items: serverTabs
+        .filter((item) => item.value === "providers" || item.value === "models")
+        .map((item) => ({ ...item, label: language.t(item.label) })),
     },
     {
       items: [
-        ...rootClientTabs.map((item) => ({ ...item, label: language.t(item.label) })),
-        ...pluginTabs(),
-        {
-          value: "servers",
-          icon: pageIcons.servers,
-          label: language.t(multiple() ? "settings.tab.servers" : pageLabels.servers),
-        },
-      ],
-    },
-    {
-      items: opendashTabs.flatMap((item) =>
-        item.value === "dictation" && !platform.voiceDictation ? [] : [{ ...item, label: language.t(item.label) }],
-      ),
-    },
-    {
-      items: [
-        ...pluginTabs("about"),
-        ...(experimentalSettingsAvailable
-          ? experimentalTab.map((item) => ({ ...item, label: language.t(item.label) }))
-          : []),
-        ...aboutTab.map((item) => ({ ...item, label: language.t(item.label) })),
+        ...rootClientTabs
+          .filter((item) => item.value === "appearance")
+          .map((item) => ({ ...item, label: language.t(item.label) })),
+        ...opendashTabs.flatMap((item) =>
+          item.value !== "dictation" || !platform.voiceDictation ? [] : [{ ...item, label: language.t(item.label) }],
+        ),
       ],
     },
   ])

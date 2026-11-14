@@ -13,8 +13,8 @@ import { getStore } from "../storage/store"
 // SAFETY: oc-2.json is the bundled default theme, which the UI package loads as a DesktopTheme too.
 const oc2Theme = oc2ThemeJson as DesktopTheme
 
-// Match the renderer's 36px titlebar plus its former 8px content inset.
-export const titlebarHeight = 44
+// A slim caption strip like Claude's: the renderer's 36px titlebar with no extra inset.
+export const titlebarHeight = 36
 
 export function tone() {
   return nativeTheme.shouldUseDarkColors ? "dark" : "light"
