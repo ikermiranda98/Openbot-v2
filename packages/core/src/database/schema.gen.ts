@@ -306,6 +306,27 @@ const schema: Omit<DatabaseMigration.Migration, "id"> = {
         );
       `)
       yield* tx.run(`
+        CREATE TABLE \`trading_bot_fill\` (
+          \`id\` text PRIMARY KEY,
+          \`system\` text NOT NULL,
+          \`time\` integer NOT NULL,
+          \`data\` text NOT NULL,
+          \`time_created\` integer NOT NULL,
+          \`time_updated\` integer NOT NULL
+        );
+      `)
+      yield* tx.run(`
+        CREATE TABLE \`trading_bot_order\` (
+          \`id\` integer PRIMARY KEY,
+          \`system\` text NOT NULL,
+          \`status\` text NOT NULL,
+          \`data\` text NOT NULL,
+          \`updated\` integer NOT NULL,
+          \`time_created\` integer NOT NULL,
+          \`time_updated\` integer NOT NULL
+        );
+      `)
+      yield* tx.run(`
         CREATE TABLE \`trading_close\` (
           \`id\` text PRIMARY KEY,
           \`symbol\` text NOT NULL,

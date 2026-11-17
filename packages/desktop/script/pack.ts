@@ -56,6 +56,10 @@ if (!app && os === "mac") {
 }
 
 if (!app && os === "win") {
+  // The MT5 bridge's bundled Python (a no-op once built). Without a build Python the app still
+  // ships: the engine then runs the bridge with the system's pythonw.
+  const built = await $`python ./script/build-mt5-runtime.py`.nothrow()
+  if (built.exitCode !== 0) console.warn("mt5-runtime not built: the MT5 bridge will use the system's pythonw")
   await $`bun x electron-builder ${flags} --dir`
   const unpacked = path.join("dist", cli.cpu === "arm64" ? "win-arm64-unpacked" : "win-unpacked")
   await writeUpdateConfig(path.join(unpacked, "resources"))

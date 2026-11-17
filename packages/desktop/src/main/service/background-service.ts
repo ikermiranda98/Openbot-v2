@@ -75,7 +75,13 @@ const ensure = Effect.fn("BackgroundService.ensure")(function* (mode: Background
         "--service",
         ...(setup.isolated ? ["--hostname", "0.0.0.0", "--port", String(0x0c0c)] : []),
       ],
-      env: { OPENCODE_FLAGS: flags },
+      // The trading engine runs its MetaTrader 5 bridge with the Python 3.14 bundled beside the app.
+      env: {
+        OPENCODE_FLAGS: flags,
+        ...(app.isPackaged && process.platform === "win32" && process.env.TRADING_MT5_RUNTIME_DIR === undefined
+          ? { TRADING_MT5_RUNTIME_DIR: `${process.resourcesPath}\\mt5-runtime` }
+          : {}),
+      },
       onStart: (reason, previousVersion) =>
         runFork(Effect.logInfo("v2 CLI background service starting", { reason, previousVersion })),
     })

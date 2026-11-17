@@ -77,6 +77,35 @@ export const TradingAccountTable = sqliteTable("trading_account", {
   ...Timestamps,
 })
 
+/** One order of a bot that trades on MetaTrader 5 (the `ib_async` stand-in's view of it plus
+ * how it lives on the broker), so a restarted bot or engine finds it as on TWS. Kept 14 days
+ * after it ends; working orders stay. */
+export const TradingBotOrderTable = sqliteTable("trading_bot_order", {
+  /** The order's IB-style id (also its permId). */
+  id: integer().primaryKey(),
+  /** The system id ("01"…). */
+  system: text().notNull(),
+  /** IB status: PendingSubmit, Submitted, Filled, Cancelled or Inactive. */
+  status: text().notNull(),
+  /** The whole order (`OrdenVirtual` of trading/bots-mt5.ts). */
+  data: text({ mode: "json" }).$type<unknown>().notNull(),
+  /** Epoch ms of the order's last change. */
+  updated: integer().notNull(),
+  ...Timestamps,
+})
+
+/** One execution of a bot order on MetaTrader 5 (what `reqExecutions` / `fills` report). */
+export const TradingBotFillTable = sqliteTable("trading_bot_fill", {
+  /** "<deal>.<orderId>". */
+  id: text().primaryKey(),
+  system: text().notNull(),
+  /** Epoch ms of the execution. */
+  time: integer().notNull(),
+  /** The whole execution (`Ejecucion` of trading/bots-mt5.ts). */
+  data: text({ mode: "json" }).$type<unknown>().notNull(),
+  ...Timestamps,
+})
+
 /** One close submission. Its id replays an already-recorded verdict across engine restarts,
  * so an HTTP-level repeat of the same request reads its own earlier answer instead of
  * racing the first cycle into new orders; `lock` holds the contract's symbol while the
