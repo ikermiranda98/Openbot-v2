@@ -1,12 +1,15 @@
 export * as TradingEngine from "./trading.js"
 
-import { and, asc, desc, eq, isNotNull, lte } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, isNotNull, lte } from "drizzle-orm"
 import { Cause, Context, Effect, Exit, Layer, Option, Schema } from "effect"
 import { spawn, type ChildProcess } from "node:child_process"
-import { createHash } from "node:crypto"
+import { createHash, randomBytes } from "node:crypto"
+import { existsSync } from "node:fs"
+import { homedir } from "node:os"
+import { dirname, join } from "node:path"
 import { createInterface } from "node:readline"
 import { createConnection, isIP } from "node:net"
-import { open, readdir, readFile, stat, unlink, writeFile } from "node:fs/promises"
+import { mkdir, open, readdir, readFile, stat, unlink, writeFile } from "node:fs/promises"
 import { makeGlobalNode } from "@opencode/util/effect/app-node"
 import { Trading } from "@opencode/schema/trading"
 import {
@@ -23,7 +26,16 @@ import {
   type Position,
 } from "@stoqey/ib"
 import { Database } from "./database/database.js"
-import { TradingAccountTable, TradingCloseTable, TradingLinkTable, TradingMetaTable, TradingTaskTable, TradingTradeTable } from "./trading/sql.js"
+import {
+  TradingAccountTable,
+  TradingBotFillTable,
+  TradingBotOrderTable,
+  TradingCloseTable,
+  TradingLinkTable,
+  TradingMetaTable,
+  TradingTaskTable,
+  TradingTradeTable,
+} from "./trading/sql.js"
 import {
   type DatoVivo,
   LineaPuenteMT5,
@@ -35,6 +47,18 @@ import {
   sondearCuenta,
 } from "./trading/mt5.js"
 import { ordenMT5 } from "./trading/mt5-ordenes.js"
+import {
+  type Ejecucion,
+  type Instrumento,
+  type OrdenVirtual,
+  type Traductor,
+  RETENCION_MS,
+  crearTraductor,
+  magicPorDefecto,
+} from "./trading/bots-mt5.js"
+import { IB_ASYNC_INIT, IB_ASYNC_UTIL, IB_INSYNC_INIT } from "./trading/bots-py.js"
+import { type ServidorBots, iniciarServidorBots } from "./trading/servidor-bots.js"
+import type { LibroMT5, ResultadoMT5 } from "./trading/mt5.js"
 import { conexionIb } from "./trading/registro-ib.js"
 import { DESCARGA, type EstadoPrograma, type Programa, abrir, enMarcha, localizar, procesos } from "./trading/programas.js"
 
@@ -193,6 +217,17 @@ export interface Options {
    * The env key `TRADING_BOT_PYTHON_PATH` sits between a passed build and an empty value,
    * which forces PYTHONPATH to "". */
   readonly botPythonPath?: string
+  /** The Python that runs the MetaTrader 5 bridge (it needs the `MetaTrader5` package, which
+   * only ships wheels up to Python 3.14). A passed build wins over the env key
+   * `TRADING_MT5_PYTHON`, then the bundled runtime beside the app (`mt5-runtime\pythonw.exe`
+   * under `TRADING_MT5_RUNTIME_DIR` or the Electron resources), then the system's pythonw. */
+  readonly mt5Python?: string
+  /** Extra PYTHONPATH for the MT5 bridge (env `TRADING_MT5_PYTHONPATH`): the tests put a fake
+   * `MetaTrader5` package there. */
+  readonly mt5PythonPath?: string
+  /** Where the engine writes the bots' `ib_async` stand-in and the bot API's address file
+   * (env `TRADING_BOTS_DATA_DIR`; default `%APPDATA%\OpenBot\bots-mt5`). */
+  readonly botsDataDir?: string
   /** The TWS API client id of the engine's trading connection. Two engines on one TWS need two
    * ids (a second one under the same id is dropped by TWS): a passed build wins over the env key
    * `TRADING_CLIENT_ID`, which wins over the id persisted per installation in `trading_meta`
@@ -247,6 +282,38 @@ interface Definicion {
   /** The system's rules, key→text in file order; null when reglas.json is absent. */
   readonly reglas: Readonly<Record<string, string>> | null
   readonly meta: { symbol: string; timeframe: string } | null
+  /** Set when the folder's `system.json` sends the bot to a MetaTrader 5 account
+   * (`"broker": "mt5"`): its `ib_async` calls then reach that account through the engine. */
+  readonly mt5: DestinoMT5 | null
+}
+
+/** A system's MT5 destination, from its `system.json`:
+ * `{ "broker": "mt5", "login": 5058203356, "server": "…", "symbol": "US100.cash", "magic": 7700001 }`.
+ * Every key but `broker` is optional: without `login` the bot trades on the only MT5 link
+ * registered; without `magic` its positions carry 77000NN (NN = the folder's number). */
+interface DestinoMT5 {
+  readonly login: number | null
+  readonly server: string | null
+  readonly symbol: string | null
+  readonly magic: number
+}
+
+/** Reads a folder's `system.json`; null when it does not ask for MT5 (or is unreadable). */
+const leerDestinoMT5 = async (carpeta: string, id: string): Promise<DestinoMT5 | null> => {
+  const datos: unknown = await readFile(`${carpeta}\\system.json`, "utf8")
+    .then((texto) => JSON.parse(texto.replace(/^﻿/, "")))
+    .catch(() => null)
+  if (typeof datos !== "object" || datos === null) return null
+  const campo = (clave: string) => (datos as Record<string, unknown>)[clave]
+  if (String(campo("broker") ?? "").toLowerCase() !== "mt5") return null
+  const login = Number(campo("login"))
+  const magic = Number(campo("magic"))
+  return {
+    login: Number.isSafeInteger(login) && login > 0 ? login : null,
+    server: typeof campo("server") === "string" && campo("server") !== "" ? String(campo("server")) : null,
+    symbol: typeof campo("symbol") === "string" && campo("symbol") !== "" ? String(campo("symbol")) : null,
+    magic: Number.isSafeInteger(magic) && magic > 0 ? magic : magicPorDefecto(id),
+  }
 }
 
 interface Runtime {
@@ -314,6 +381,7 @@ const definicion = async (name: string, dir: string): Promise<Definicion> => {
     descripcion,
     reglas,
     meta: META[name] ?? null,
+    mt5: await leerDestinoMT5(folder, name.slice(0, 2)),
   }
 }
 
@@ -747,6 +815,19 @@ export const layer = (options: Options = {}) =>
       const clienteMotor = yield* resolverClienteMotor(options)
       /** Resolved once at boot ("where pythonw"); a PATH miss degrades to the bare command. */
       let pythonwEjecutable = "pythonw"
+      /** The MT5 bridge's own Python: the passed build, the env key, the bundled 3.14 runtime
+       * (`build-mt5-runtime.py` prepares it with MetaTrader5 inside), else the system's pythonw. */
+      const runtimeMT5 = [opcionEntorno("TRADING_MT5_RUNTIME_DIR"), (process as { resourcesPath?: string }).resourcesPath]
+        .filter((dir): dir is string => dir !== undefined)
+        .map((dir) => (dir.toLowerCase().endsWith("mt5-runtime") ? join(dir, "pythonw.exe") : join(dir, "mt5-runtime", "pythonw.exe")))
+        .find((ruta) => existsSync(ruta))
+      const pythonMT5Fijo = options.mt5Python ?? opcionEntorno("TRADING_MT5_PYTHON") ?? runtimeMT5
+      const pythonMT5 = () => pythonMT5Fijo ?? pythonwEjecutable
+      const pythonPathMT5 = options.mt5PythonPath ?? opcionEntorno("TRADING_MT5_PYTHONPATH")
+      /** The bots' MT5 side: the stand-in package, the API's address file, the server clock. */
+      const datosBots =
+        options.botsDataDir ?? opcionEntorno("TRADING_BOTS_DATA_DIR") ?? join(process.env.APPDATA ?? homedir(), "OpenBot", "bots-mt5")
+      const ficheroMotor = join(datosBots, "engine.json")
 
       type TaskRow = typeof TradingTaskTable.$inferSelect
 
@@ -823,6 +904,11 @@ export const layer = (options: Options = {}) =>
         posiciones: Trading.Position[]
         /** Today's closing deals as of the last read, newest first. */
         cierres: Trading.Trade[]
+        /** The bots' view of the terminal (every position with its ticket, magic, SL and TP,
+         * the pending orders and three days of deals); null while the bridge reads nothing. */
+        libro: LibroMT5 | null
+        /** Commands sent down the bridge's stdin that still wait for their answer. */
+        readonly esperando: Map<string, (resultado: ResultadoMT5) => void>
       }
 
       type Enlace = EnlaceIBKR | EnlaceMT5
@@ -891,6 +977,8 @@ export const layer = (options: Options = {}) =>
         motivo: null,
         posiciones: [],
         cierres: [],
+        libro: null,
+        esperando: new Map(),
       })
 
       const enlacePrimario = () => enlaces.get(clavePrimario)
@@ -1364,6 +1452,195 @@ export const layer = (options: Options = {}) =>
       )
 
       // The links' table reloads after the MT5 bridge machinery, further down.
+
+      // ------------------------------------------------- bots on MetaTrader 5 ----------------
+      // A system whose system.json says "broker": "mt5" runs its unchanged ib_async bot
+      // against an MT5 account: the stand-in package (bots-py.ts) sends every call to the
+      // bot API below, the translator (bots-mt5.ts) turns it into commands for the link's
+      // bridge, and the bridge runs them on that terminal's account alone.
+
+      let contadorComando = 0
+      /** One command down a link's bridge; its answer, or why there was none. */
+      const comandoMT5 = (enlaceID: string, verbo: string, arg: string) =>
+        new Promise<ResultadoMT5>((resolver) => {
+          const enlace = enlaces.get(enlaceID)
+          const entrada = enlace?.broker === "mt5" ? enlace.child?.stdin : undefined
+          if (enlace === undefined || enlace.broker !== "mt5" || entrada === undefined || entrada === null || enlace.libro === null) {
+            resolver({ ok: false, retcode: -1, message: "el terminal de MetaTrader 5 no está conectado", data: null })
+            return
+          }
+          contadorComando += 1
+          const id = `c${contadorComando}`
+          const reloj = setTimeout(() => {
+            enlace.esperando.delete(id)
+            resolver({ ok: false, retcode: -2, message: "MetaTrader 5 no confirmó la orden a tiempo: revisa MT5 antes de repetir", data: null })
+          }, 30_000)
+          enlace.esperando.set(id, (resultado) => {
+            clearTimeout(reloj)
+            resolver(resultado)
+          })
+          entrada.write(`${JSON.stringify({ id, verb: verbo, arg })}\n`)
+        })
+
+      /** The MT5 link a system trades on: its system.json login (and server), else the only one. */
+      const enlaceBot = (sistema: string): { ok: true; enlace: string } | { ok: false; motivo: string } => {
+        const destino = sistemas.find((def) => def.id === sistema)?.mt5
+        if (destino === undefined || destino === null)
+          return { ok: false, motivo: `el sistema ${sistema} no opera en MetaTrader 5 (su system.json no dice "broker": "mt5")` }
+        const candidatos = [...enlaces.values()].filter(
+          (enlace): enlace is EnlaceMT5 =>
+            enlace.broker === "mt5" &&
+            (destino.login === null || enlace.login === destino.login) &&
+            (destino.server === null || enlace.server === destino.server),
+        )
+        if (candidatos.length === 1) return { ok: true, enlace: candidatos[0].id }
+        if (candidatos.length === 0)
+          return {
+            ok: false,
+            motivo:
+              destino.login === null
+                ? "no hay ninguna cuenta de MetaTrader 5 enlazada en OpenBot"
+                : `la cuenta de MetaTrader 5 ${destino.login} no está enlazada en OpenBot`,
+          }
+        return { ok: false, motivo: `hay ${candidatos.length} cuentas de MetaTrader 5 enlazadas: pon "login" en el system.json del sistema` }
+      }
+
+      const guardarDb = (efecto: Effect.Effect<unknown, unknown>, que: string) =>
+        void Effect.runPromise(efecto).catch((error: unknown) =>
+          pushLog("error", "motor", `MT5 bots: could not save ${que}: ${String(error)}`),
+        )
+
+      const filasOrdenes = yield* db.select().from(TradingBotOrderTable).all().pipe(Effect.orDie)
+      const filasEjecuciones = yield* db.select().from(TradingBotFillTable).all().pipe(Effect.orDie)
+      const filaInstrumentos = yield* db.select().from(TradingMetaTable).where(eq(TradingMetaTable.id, "bots-mt5-instrumentos")).all().pipe(Effect.orDie)
+      const instrumentosGuardados: Instrumento[] = yield* Effect.try({
+        try: () => (filaInstrumentos[0] === undefined ? [] : (JSON.parse(filaInstrumentos[0].value) as Instrumento[])),
+        catch: () => "unreadable",
+      }).pipe(Effect.catch(() => Effect.succeed([])))
+
+      const traductor: Traductor = crearTraductor(
+        {
+          enlaceDe: enlaceBot,
+          libro: (enlaceID) => {
+            const enlace = enlaces.get(enlaceID)
+            return enlace?.broker === "mt5" ? enlace.libro : null
+          },
+          comando: comandoMT5,
+          magic: (sistema) => sistemas.find((def) => def.id === sistema)?.mt5?.magic ?? magicPorDefecto(sistema),
+          simbolo: (sistema) => sistemas.find((def) => def.id === sistema)?.mt5?.symbol ?? null,
+          log: (nivel, sistema, mensaje) => pushLog(nivel, sistemas.find((def) => def.id === sistema)?.name ?? sistema, mensaje),
+          guardarOrden: (o: OrdenVirtual) => {
+            const stamp = Date.now()
+            guardarDb(
+              db
+                .insert(TradingBotOrderTable)
+                .values({ id: o.orderId, system: o.system, status: o.status, data: o, updated: o.updated, time_created: stamp, time_updated: stamp })
+                .onConflictDoUpdate({ target: TradingBotOrderTable.id, set: { status: o.status, data: o, updated: o.updated, time_updated: stamp } })
+                .run(),
+              `order ${o.orderId}`,
+            )
+          },
+          guardarEjecucion: (f: Ejecucion) => {
+            const stamp = Date.now()
+            guardarDb(
+              db
+                .insert(TradingBotFillTable)
+                .values({ id: f.execId, system: f.system, time: f.time, data: f, time_created: stamp, time_updated: stamp })
+                .onConflictDoNothing()
+                .run(),
+              `execution ${f.execId}`,
+            )
+          },
+          guardarInstrumentos: (lista) => {
+            const stamp = Date.now()
+            const value = JSON.stringify(lista)
+            guardarDb(
+              db
+                .insert(TradingMetaTable)
+                .values({ id: "bots-mt5-instrumentos", value, time_created: stamp, time_updated: stamp })
+                .onConflictDoUpdate({ target: TradingMetaTable.id, set: { value, time_updated: stamp } })
+                .run(),
+              "the instruments",
+            )
+          },
+        },
+        {
+          ordenes: filasOrdenes.map((fila) => fila.data as OrdenVirtual),
+          ejecuciones: filasEjecuciones.map((fila) => fila.data as Ejecucion),
+          instrumentos: instrumentosGuardados,
+        },
+      )
+      // The 14-day window also bounds the tables: older finished rows go at boot.
+      const caducidadBots = Date.now() - RETENCION_MS
+      yield* db
+        .delete(TradingBotOrderTable)
+        .where(and(lte(TradingBotOrderTable.updated, caducidadBots), inArray(TradingBotOrderTable.status, ["Filled", "Cancelled", "Inactive"])))
+        .run()
+        .pipe(Effect.orDie)
+      yield* db.delete(TradingBotFillTable).where(lte(TradingBotFillTable.time, caducidadBots)).run().pipe(Effect.orDie)
+
+      /** Each system's bot token, created once and kept (`bot-token:<id>` in trading_meta). */
+      const tokensBots = new Map<string, string>()
+      for (const fila of yield* db.select().from(TradingMetaTable).all().pipe(Effect.orDie))
+        if (fila.id.startsWith("bot-token:")) tokensBots.set(fila.id.slice("bot-token:".length), fila.value)
+      const tokenDe = (sistema: string) =>
+        Effect.gen(function* () {
+          const previo = tokensBots.get(sistema)
+          if (previo !== undefined) return previo
+          const nuevo = randomBytes(24).toString("hex")
+          const stamp = Date.now()
+          yield* db
+            .insert(TradingMetaTable)
+            .values({ id: `bot-token:${sistema}`, value: nuevo, time_created: stamp, time_updated: stamp })
+            .onConflictDoUpdate({ target: TradingMetaTable.id, set: { value: nuevo, time_updated: stamp } })
+            .run()
+            .pipe(Effect.orDie)
+          tokensBots.set(sistema, nuevo)
+          return nuevo
+        })
+      const sistemaDeToken = (token: string) => {
+        for (const [sistema, guardado] of tokensBots) if (guardado === token) return sistema
+        return null
+      }
+
+      /** The bot API and the 1 s reconcile, started with the first MT5 bot (or at boot while
+       * orders still work on a broker). The address lands in engine.json for running bots. */
+      const servidorBots: { value: ServidorBots | null; arrancando: Promise<ServidorBots> | null } = { value: null, arrancando: null }
+      let relojBots: ReturnType<typeof setInterval> | null = null
+      const prepararBots = async () => {
+        if (servidorBots.value !== null) return servidorBots.value
+        if (servidorBots.arrancando === null)
+          servidorBots.arrancando = (async () => {
+            const paquete = join(datosBots, "pyshim")
+            await mkdir(join(paquete, "ib_async"), { recursive: true })
+            await mkdir(join(paquete, "ib_insync"), { recursive: true })
+            await writeFile(join(paquete, "ib_async", "__init__.py"), IB_ASYNC_INIT)
+            await writeFile(join(paquete, "ib_async", "util.py"), IB_ASYNC_UTIL)
+            await writeFile(join(paquete, "ib_insync", "__init__.py"), IB_INSYNC_INIT)
+            const servidor = await iniciarServidorBots(traductor, sistemaDeToken)
+            await mkdir(dirname(ficheroMotor), { recursive: true })
+            await writeFile(ficheroMotor, JSON.stringify({ api: servidor.url, pid: process.pid }))
+            servidorBots.value = servidor
+            if (relojBots === null) {
+              relojBots = setInterval(() => void traductor.tick().catch((error: unknown) => pushLog("error", "motor", `MT5 bots: reconcile failed: ${String(error)}`)), 1_000)
+              relojBots.unref?.()
+            }
+            pushLog("info", "motor", `MT5 bots: the bot API listens on ${servidor.url}`)
+            return servidor
+          })()
+        return servidorBots.arrancando
+      }
+      yield* Effect.addFinalizer(() =>
+        Effect.promise(async () => {
+          if (relojBots !== null) clearInterval(relojBots)
+          relojBots = null
+          await servidorBots.value?.cerrar()
+          servidorBots.value = null
+        }),
+      )
+      // Orders still working on a broker keep being followed after a restart, bot or no bot.
+      if (traductor.hayActivas() && (yield* db.select().from(TradingLinkTable).all().pipe(Effect.orDie)).some((fila) => fila.broker === "mt5"))
+        yield* Effect.promise(() => prepararBots().then(() => undefined).catch(() => undefined))
 
       escuchar(
         "positions",
@@ -1960,7 +2237,7 @@ export const layer = (options: Options = {}) =>
             // would be rejected. Adopt the live one instead of spawning a twin, exactly what the
             // sweep does on its own beat.
             const clientId = def.clientId
-            if (enlacePrimaria.conectado && clientId !== null) {
+            if (def.mt5 === null && enlacePrimaria.conectado && clientId !== null) {
               const ocupado = yield* Effect.promise(() => clientIdEnUso(host, port, clientId))
               if (ocupado) {
                 adjuntar(def, "external", null, `Bot ya en marcha · detectado en TWS con su CLIENT_ID ${clientId}`)
@@ -1984,6 +2261,36 @@ export const layer = (options: Options = {}) =>
                 `Two bots on the same symbol · ${gemelo.name} already runs on ${simbolo}: can duplicate positions`,
                 { message_key: "trading.log.bot.same_symbol", message_params: { twin: gemelo.name, symbol: simbolo } },
               )
+            // A bot sent to MetaTrader 5 gets the ib_async stand-in first on its PYTHONPATH,
+            // its system's token and the bot API's address; it never reaches TWS.
+            let entornoMT5: Record<string, string> | null = null
+            if (def.mt5 !== null) {
+              const destino = enlaceBot(id)
+              if (!destino.ok) {
+                pushLog("error", def.name, `The bot cannot start on MetaTrader 5: ${destino.motivo}`)
+                return { sistema: toSchemaSystem(def), ok: false, motivo: destino.motivo }
+              }
+              const servidor = yield* Effect.tryPromise({ try: () => prepararBots(), catch: (error) => String(error) }).pipe(
+                Effect.catch((error) =>
+                  Effect.sync(() => {
+                    pushLog("error", def.name, `The bot cannot start on MetaTrader 5: the bot API did not start (${error})`)
+                    return null
+                  }),
+                ),
+              )
+              if (servidor === null) return { sistema: toSchemaSystem(def), ok: false, motivo: "no arrancó la API de los bots" }
+              const token = yield* tokenDe(id)
+              entornoMT5 = {
+                PYTHONPATH: [join(datosBots, "pyshim"), botPythonPath].filter((p) => p !== undefined && p !== "").join(";"),
+                PYTHONIOENCODING: "utf-8",
+                OPENBOT_BOT_TOKEN: token,
+                OPENBOT_ENGINE_URL: servidor.url,
+                OPENBOT_ENGINE_FILE: ficheroMotor,
+                OPENBOT_SYSTEM_ID: id,
+                OPENBOT_MAGIC: String(def.mt5.magic),
+              }
+              pushLog("info", def.name, `The bot trades on MetaTrader 5 (${destino.enlace}, magic ${def.mt5.magic}) through OpenBot's ib_async`)
+            }
             const runtime = previo ?? runtimeNuevo()
             if (previo === undefined) {
               // Tail offsets are seeded at the current day's first row, so the record keeps the
@@ -2005,7 +2312,7 @@ export const layer = (options: Options = {}) =>
             // (pidEsBot) denies a kill whose bot.py does not live in this system's folder.
             const child = spawn(pythonwEjecutable, [`${dir}\\bot.py`], {
               cwd: dir,
-              env: { ...process.env, PYTHONPATH: botPythonPath === undefined ? "" : botPythonPath },
+              env: { ...process.env, PYTHONPATH: botPythonPath === undefined ? "" : botPythonPath, ...entornoMT5 },
               windowsHide: true,
               stdio: ["ignore", "ignore", consola.fd],
             })
@@ -2200,7 +2507,11 @@ export const layer = (options: Options = {}) =>
       })
 
       const detener = Effect.fn("TradingEngine.detener")(function* (id: string, origin: StopOrigin) {
-        return (yield* pararBot(id, origin)).sistema
+        const salida = yield* pararBot(id, origin)
+        // A stopped MT5 bot's market orders still waiting for the market have nobody to follow
+        // them; its stops and targets stay on the broker.
+        if (salida.stopped) traductor.sistemaParado(id)
+        return salida.sistema
       })
 
       /** Stops every running bot in turn; a stop failure never blocks the rest, and the
@@ -2215,8 +2526,10 @@ export const layer = (options: Options = {}) =>
               Effect.succeed({ sistema: toSchemaSystem(def), stopped: false, motivo: "fallo inesperado en la parada" }),
             ),
           )
-          if (salida.stopped) detenidos.push(def.name)
-          else fallos.push(`${def.name}: ${salida.motivo ?? "parada sin confirmar"}`)
+          if (salida.stopped) {
+            detenidos.push(def.name)
+            traductor.sistemaParado(def.id)
+          } else fallos.push(`${def.name}: ${salida.motivo ?? "parada sin confirmar"}`)
         }
         if (fallos.length > 0) pushLog("error", "motor", `Could not stop: ${fallos.join(" · ")}`, { message_key: "trading.log.bot.stop_failed", message_params: { systems: fallos.join(" · ") } })
         return { detenidos, fallos }
@@ -3087,9 +3400,25 @@ export const layer = (options: Options = {}) =>
       const cerrarMT5 = (enlace: EnlaceMT5, symbol: string) =>
         Effect.gen(function* () {
         pushLog("info", "motor", `Close of ${symbol} · orders to the MetaTrader 5 terminal (${enlace.login})`, { message_key: "trading.log.close.mt5_orders", message_params: { symbol, login: enlace.login } })
-          const salida = yield* Effect.promise(() =>
-            ordenMT5(pythonwEjecutable, { accion: "cerrar", login: enlace.login, server: enlace.server, symbol }),
-          )
+          // The link's own bridge closes when it is attached (one Python per terminal); a
+          // short-lived close run stands in while it reads nothing.
+          const libro = enlace.libro
+          const salida =
+            libro === null
+              ? yield* Effect.promise(() => ordenMT5(pythonMT5(), { accion: "cerrar", login: enlace.login, server: enlace.server, symbol }))
+              : yield* Effect.promise(async (): Promise<{ ok: boolean; message: string }> => {
+                  const abiertas = libro.positions.filter((posicion) => posicion.symbol === symbol)
+                  if (abiertas.length === 0) return { ok: true, message: `La posición de ${symbol} ya no está abierta` }
+                  const fallos: string[] = []
+                  for (const posicion of abiertas) {
+                    const r = await comandoMT5(enlace.id, "CLOSEVOL", `${posicion.ticket};${posicion.volume}`)
+                    if (!r.ok && r.retcode !== 10036) fallos.push(`${posicion.ticket}: ${r.message} (${r.retcode})`)
+                  }
+                  const cerradas = abiertas.length - fallos.length
+                  return fallos.length > 0
+                    ? { ok: false, message: `Cerradas ${cerradas} de ${abiertas.length} posiciones de ${symbol}; fallaron ${fallos.join("; ")}` }
+                    : { ok: true, message: `Cierre de ${symbol} ejecutado (${cerradas} posición${cerradas === 1 ? "" : "es"})` }
+                })
         pushLog(salida.ok ? "info" : "error", "motor", `Close of ${symbol} · ${salida.message}`, { message_key: "trading.log.close.result", message_params: { symbol, message: salida.message } })
           return salida
         })
@@ -3368,6 +3697,15 @@ export const layer = (options: Options = {}) =>
       const panic = Effect.fn("TradingEngine.panic")(function* () {
         pushLog("warning", "motor", "Panic · stopping every running bot, cancelling pending tasks and clearing open positions", { message_key: "trading.log.panic.start", message_params: {} })
         const { detenidos, fallos } = yield* detenerTodos("panic")
+        // The MT5 bots' working orders go first: a pending entry left on the broker would
+        // reopen what the sweep below closes.
+        const ordenesBots = yield* Effect.promise(() => traductor.cancelarTodo())
+        if (ordenesBots.canceladas > 0 || ordenesBots.fallos.length > 0)
+          pushLog(
+            ordenesBots.fallos.length > 0 ? "error" : "info",
+            "motor",
+            `Panic · ${ordenesBots.canceladas} MT5 bot order(s) cancelled${ordenesBots.fallos.length > 0 ? `; could not cancel ${ordenesBots.fallos.join(" · ")}` : ""}`,
+          )
         const pendientes = yield* db.select().from(TradingTaskTable).where(eq(TradingTaskTable.status, "pending")).all().pipe(Effect.orDie)
         for (const fila of pendientes) {
           const stamp = Date.now()
@@ -3690,11 +4028,22 @@ export const layer = (options: Options = {}) =>
        * still owns, so a removal (or the engine's shutdown nulling first) never respawns. */
       const arrancarPuenteMT5 = (enlace: EnlaceMT5) => {
         const id = enlace.id
-        const child = spawn(pythonwEjecutable, ["-c", PUENTE_PY], {
-          windowsHide: true,
-          stdio: ["ignore", "pipe", "ignore"],
-        })
+        // The bridge reads the terminal for the dashboard and, over its stdin, runs the bots'
+        // orders on the link's own account only (login and server checked per command).
+        const child = spawn(
+          pythonMT5(),
+          ["-c", PUENTE_PY, "--login", String(enlace.login), "--server", enlace.server, "--desfase", join(datosBots, `desfase-${enlace.login}.json`)],
+          {
+            windowsHide: true,
+            stdio: ["pipe", "pipe", "ignore"],
+            env:
+              pythonPathMT5 === undefined
+                ? process.env
+                : { ...process.env, PYTHONPATH: [pythonPathMT5, process.env.PYTHONPATH].filter((p) => p !== undefined && p !== "").join(";") },
+          },
+        )
         enlace.child = child
+        child.stdin?.on("error", () => undefined)
         if (child.stdout === null) {
         pushLog("error", "motor", `MT5 bridge ${id}: the Python bridge produced no output`, { message_key: "trading.log.mt5.no_output", message_params: { id } })
           return
@@ -3707,13 +4056,30 @@ export const layer = (options: Options = {}) =>
         if (linea.trim() !== "") pushLog("warning", "motor", `MT5 bridge ${id}: line not understood`, { message_key: "trading.log.mt5.line_unknown", message_params: { id } })
               return
             }
-            cuentaMT5Linea(enlace, leyendo.value)
+            const dato = leyendo.value
+            if (dato.type === "resultado") {
+              const avisar = enlace.esperando.get(dato.id)
+              enlace.esperando.delete(dato.id)
+              avisar?.({ ok: dato.ok, retcode: dato.retcode, message: dato.message, data: dato.data })
+              return
+            }
+            if (dato.type === "bot") {
+              // The book is only the link's own account; a line without deals keeps the last ones.
+              if (dato.login !== enlace.login || dato.server !== enlace.server) return
+              enlace.libro = { ...dato, deals: dato.deals ?? enlace.libro?.deals ?? [] }
+              return
+            }
+            cuentaMT5Linea(enlace, dato)
           }),
         )
         child.on("error", (error) => pushLog("error", "motor", `MT5 bridge ${id}: could not start the Python bridge: ${String(error)}`, { message_key: "trading.log.mt5.bridge_start_failed", message_params: { id, error: String(error) } }))
         child.on("exit", (code) => {
           if (enlace.child !== child) return
           enlace.child = null
+          enlace.libro = null
+          for (const avisar of enlace.esperando.values())
+            avisar({ ok: false, retcode: -1, message: "el puente de MetaTrader 5 se cerró: revisa MT5 antes de repetir", data: null })
+          enlace.esperando.clear()
           if (enlace.conectado) {
             enlace.conectado = false
             // A fallen bridge can also be a closed terminal: a stale balance row reads as
@@ -3752,7 +4118,7 @@ export const layer = (options: Options = {}) =>
       /** One parsed bridge line's verdict: the watch's own login fills its account, a
        * terminal logged in as someone else says so in the record instead of feeding the
        * wrong account, and an unreached terminal (or none logged in) keeps the watch empty. */
-      const cuentaMT5Linea = (enlace: EnlaceMT5, dato: typeof LineaPuenteMT5.Type) => {
+      const cuentaMT5Linea = (enlace: EnlaceMT5, dato: Extract<typeof LineaPuenteMT5.Type, { type: "cuenta" | "estado" }>) => {
         const id = enlace.id
         if (dato.type === "cuenta") {
           if (dato.login !== enlace.login || dato.server !== enlace.server) {
@@ -3796,6 +4162,7 @@ export const layer = (options: Options = {}) =>
           }
           return
         }
+        enlace.libro = null
         if (enlace.conectado) {
           enlace.conectado = false
           enlace.cuentas.clear()
@@ -3957,7 +4324,7 @@ export const layer = (options: Options = {}) =>
         const vivo: DatoVivo | null =
           puente !== undefined
             ? { login: puente.login, server: puente.server, name: null }
-            : yield* Effect.promise(() => sondearCuenta(pythonwEjecutable))
+            : yield* Effect.promise(() => sondearCuenta(pythonMT5()))
         if (vivo !== null) {
           const clave = `${vivo.login}@${vivo.server}`
           const previa = porClave.get(clave)

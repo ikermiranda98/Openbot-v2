@@ -1,8 +1,8 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "cb910cec-c162-417f-aaa9-8050edb5cee8",
-  "prevIds": ["c9e81cb8-0325-4363-8a79-ff4726038d40"],
+  "id": "71326699-744a-4329-85ec-2a13905e9745",
+  "prevIds": ["cb910cec-c162-417f-aaa9-8050edb5cee8"],
   "ddl": [
     {
       "name": "account_state",
@@ -94,6 +94,14 @@
     },
     {
       "name": "trading_account",
+      "entityType": "tables"
+    },
+    {
+      "name": "trading_bot_fill",
+      "entityType": "tables"
+    },
+    {
+      "name": "trading_bot_order",
       "entityType": "tables"
     },
     {
@@ -2032,6 +2040,136 @@
       "generated": null,
       "name": "id",
       "entityType": "columns",
+      "table": "trading_bot_fill"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "system",
+      "entityType": "columns",
+      "table": "trading_bot_fill"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time",
+      "entityType": "columns",
+      "table": "trading_bot_fill"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "data",
+      "entityType": "columns",
+      "table": "trading_bot_fill"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_created",
+      "entityType": "columns",
+      "table": "trading_bot_fill"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_updated",
+      "entityType": "columns",
+      "table": "trading_bot_fill"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "trading_bot_order"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "system",
+      "entityType": "columns",
+      "table": "trading_bot_order"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "trading_bot_order"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "data",
+      "entityType": "columns",
+      "table": "trading_bot_order"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated",
+      "entityType": "columns",
+      "table": "trading_bot_order"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_created",
+      "entityType": "columns",
+      "table": "trading_bot_order"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_updated",
+      "entityType": "columns",
+      "table": "trading_bot_order"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
       "table": "trading_close"
     },
     {
@@ -2795,6 +2933,20 @@
       "nameExplicit": false,
       "name": "trading_account_pk",
       "table": "trading_account",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["id"],
+      "nameExplicit": false,
+      "name": "trading_bot_fill_pk",
+      "table": "trading_bot_fill",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["id"],
+      "nameExplicit": false,
+      "name": "trading_bot_order_pk",
+      "table": "trading_bot_order",
       "entityType": "pks"
     },
     {

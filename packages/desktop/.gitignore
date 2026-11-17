@@ -28,3 +28,4 @@ resources/opencode-cli*
 resources/hex-*.exe*
 resources/icons
 resources/*.metainfo.xml
+resources/mt5-runtime/

@@ -87,6 +87,8 @@ const getBase = (appId: string): Configuration => {
       "out/**/*",
       "resources/**/*",
       "!resources/opencode-cli*",
+      // The MT5 bridge's Python ships beside the asar (win.extraResources), never inside it.
+      "!resources/mt5-runtime{,/**/*}",
       // Keep only the target platform's node-pty prebuild when cross-packaging with --cpu=*.
       ...CLI_BINARIES.filter((item) => item.os !== target.os || item.cpu !== target.cpu).map(
         (item) => `!**/node_modules/@lydell/node-pty-${item.os}-${item.cpu}{,/**/*}`,
@@ -185,6 +187,10 @@ const getBase = (appId: string): Configuration => {
       icon: `build/icon.ico`,
       target: ["nsis"],
       verifyUpdateCodeSignature: false,
+      // The MetaTrader 5 bridge's own Python 3.14 with the MetaTrader5 package (built by
+      // script/build-mt5-runtime.py): the trading engine finds it under resources/mt5-runtime and
+      // falls back to the system's pythonw when a build leaves it out.
+      extraResources: [{ from: "resources/mt5-runtime/", to: "mt5-runtime/", filter: ["**/*"] }],
     },
     nsis: {
       include: path.join(packageDir, "resources", "windows", "installer.nsh"),
